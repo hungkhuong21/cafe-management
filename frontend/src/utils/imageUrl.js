@@ -17,11 +17,11 @@ export function getImageUrl(url) {
     return trimmed;
   }
 
-  // Tự động nhận diện host IP của máy tính để điện thoại tải được ảnh
-  const rawApi = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-  const currentHost = typeof window !== "undefined" ? window.location.hostname : "localhost";
-  const apiBase = rawApi.replace("localhost", currentHost).replace("127.0.0.1", currentHost);
-  const hostBase = apiBase.replace(/\/api\/?$/, "");
+  // Tự động tải ảnh upload từ Backend Render
+  const rawApi =
+    import.meta.env.VITE_API_URL ||
+    "https://cafe-management-api-un5y.onrender.com/api";
+  const hostBase = rawApi.replace(/\/api\/?$/, "");
   const cleanPath = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 
   return `${hostBase}${cleanPath}`;

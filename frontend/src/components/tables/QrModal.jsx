@@ -13,9 +13,7 @@ export default function QrModal({ table, onClose, onTableUpdated }) {
   const defaultBase =
     localStorage.getItem("cf_qr_base_url") ||
     import.meta.env.VITE_PUBLIC_URL ||
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      ? "http://192.168.104.120:5173"
-      : window.location.origin);
+    (typeof window !== "undefined" ? window.location.origin : "");
 
   const [baseUrl] = useState(defaultBase);
 

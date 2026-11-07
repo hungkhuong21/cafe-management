@@ -1,14 +1,12 @@
 import axios from "axios";
 
-// Tự động nhận diện host (nếu điện thoại vào qua IP 192.168.x.x thì API tự động kết nối theo IP đó)
-const rawUrl = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const currentHost = typeof window !== "undefined" ? window.location.hostname : "localhost";
-const resolvedBaseUrl = rawUrl
-  .replace("localhost", currentHost)
-  .replace("127.0.0.1", currentHost);
+// Kết nối trực tiếp tới Render API
+const rawUrl =
+  import.meta.env.VITE_API_URL ||
+  "https://cafe-management-api-un5y.onrender.com/api";
 
 const api = axios.create({
-  baseURL: resolvedBaseUrl,
+  baseURL: rawUrl,
 });
 
 // Tự động gắn token nếu có
