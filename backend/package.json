@@ -7,7 +7,7 @@
     "start": "nest start",
     "dev": "tsx watch src/main.ts",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main"
+    "start:prod": "node dist/main.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
