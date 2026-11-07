@@ -13,16 +13,27 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     const connectionString = process.env.DATABASE_URL;
+    const isCloudDb =
+      connectionString &&
+      (connectionString.includes('render.com') ||
+        connectionString.includes('neon.tech') ||
+        connectionString.includes('supabase') ||
+        connectionString.includes('sslmode=require') ||
+        process.env.DB_SSL === 'true');
 
     this.pool = new Pool(
       connectionString
-        ? { connectionString }
+        ? {
+            connectionString,
+            ssl: isCloudDb ? { rejectUnauthorized: false } : undefined,
+          }
         : {
             host: process.env.DB_HOST || 'localhost',
             port: Number(process.env.DB_PORT) || 5432,
             user: process.env.DB_USER || 'postgres',
             password: process.env.DB_PASSWORD,
             database: process.env.DB_NAME || 'cafe-management',
+            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
           },
     );
 

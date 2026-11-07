@@ -6,6 +6,7 @@ import { Logger } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -23,8 +24,14 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Đảm bảo thư mục uploads luôn tồn tại trên môi trường production (Render / Docker)
+  const uploadsDir = join(process.cwd(), 'uploads');
+  if (!existsSync(uploadsDir)) {
+    mkdirSync(uploadsDir, { recursive: true });
+  }
+
   // Phục vụ thư mục ảnh tĩnh /uploads
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+  app.useStaticAssets(uploadsDir, {
     prefix: '/uploads/',
   });
 
