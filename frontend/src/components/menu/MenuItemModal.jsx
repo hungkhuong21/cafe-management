@@ -224,7 +224,7 @@ export default function MenuItemModal({
             <div className="flex items-center gap-4">
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="w-20 h-20 rounded-2xl border-2 border-dashed border-stone-300 hover:border-orange-500 cursor-pointer flex flex-col items-center justify-center bg-stone-50 overflow-hidden relative group shrink-0 transition"
+                className="w-24 h-24 rounded-2xl border-2 border-dashed border-stone-300 hover:border-orange-500 cursor-pointer flex flex-col items-center justify-center bg-stone-50 overflow-hidden relative group shrink-0 transition shadow-2xs"
               >
                 {imagePreview ? (
                   <>

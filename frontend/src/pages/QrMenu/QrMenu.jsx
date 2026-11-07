@@ -652,7 +652,7 @@ export default function QrMenuPage() {
                     >
                       <div className="flex gap-3 items-center">
                         {/* Ảnh món ăn */}
-                        <div className="w-20 h-20 rounded-2xl overflow-hidden bg-stone-100 flex-shrink-0 relative border border-stone-100">
+                        <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-stone-100 flex-shrink-0 relative border border-stone-200/60 shadow-2xs">
                           {item.image_url ? (
                             <img
                               src={getImageUrl(item.image_url)}
@@ -666,11 +666,11 @@ export default function QrMenuPage() {
                             />
                           ) : (
                             <div className="w-full h-full flex flex-col items-center justify-center bg-stone-100 text-stone-400">
-                              <Coffee className="w-6 h-6 stroke-[1.5]" />
+                              <Coffee className="w-8 h-8 stroke-[1.5]" />
                             </div>
                           )}
                           {idx === 0 && (
-                            <span className="absolute top-1 left-1 text-[8px] font-black text-white bg-[#D95D39] px-1.5 py-0.5 rounded-md shadow-xs">
+                            <span className="absolute top-1.5 left-1.5 text-[8px] font-black text-white bg-[#D95D39] px-2 py-0.5 rounded-md shadow-xs">
                               BEST
                             </span>
                           )}
@@ -680,7 +680,7 @@ export default function QrMenuPage() {
                         <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
                           <div>
                             <div className="flex items-start justify-between gap-1">
-                              <h3 className="text-xs sm:text-sm font-extrabold text-stone-900 truncate leading-snug">
+                              <h3 className="text-xs sm:text-sm font-extrabold text-stone-900 line-clamp-1 leading-snug">
                                 {item.name}
                               </h3>
                               {idx === 1 && (
@@ -888,7 +888,7 @@ export default function QrMenuPage() {
                           e.target.src =
                             "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=240&auto=format&fit=crop&q=80";
                         }}
-                        className="w-14 h-14 rounded-2xl object-cover bg-stone-100 border border-stone-100 shrink-0"
+                        className="w-16 h-16 rounded-2xl object-cover bg-stone-100 border border-stone-200/60 shrink-0 shadow-2xs"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-1">

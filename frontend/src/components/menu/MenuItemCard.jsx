@@ -42,23 +42,25 @@ export default function MenuItemCard({
   }, [showMenu]);
 
   return (
-    <div className="relative flex gap-4 rounded-2xl bg-white p-3 shadow-sm border border-stone-100 hover:shadow-md transition">
+    <div className="relative flex gap-3.5 rounded-2xl bg-white p-3.5 shadow-sm border border-stone-100 hover:shadow-md transition">
       {/* Ảnh món */}
       {displayImage && !imgError ? (
-        <img
-          src={displayImage}
-          alt={item.name}
-          onError={() => setImgError(true)}
-          className="h-24 w-24 shrink-0 rounded-xl object-cover bg-stone-50 border border-stone-100"
-        />
+        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-stone-50 border border-stone-200/60 shadow-2xs">
+          <img
+            src={displayImage}
+            alt={item.name}
+            onError={() => setImgError(true)}
+            className="h-full w-full object-cover transition duration-300 hover:scale-105"
+          />
+        </div>
       ) : (
-        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-3xl">
+        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-stone-100 border border-stone-200/50 text-3xl select-none">
           {item.emoji || "☕"}
         </div>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-1">
           <span className="text-[10px] font-bold tracking-wider text-brand uppercase truncate">
             {categoryName}
           </span>
@@ -108,8 +110,13 @@ export default function MenuItemCard({
           </div>
         </div>
 
-        <h3 className="mt-0.5 truncate font-bold text-stone-900 text-sm">{item.name}</h3>
-        <p className="text-sm font-bold text-stone-900 mt-0.5">
+        <h3
+          className="mt-0.5 line-clamp-2 font-bold text-stone-900 text-sm leading-snug break-words"
+          title={item.name}
+        >
+          {item.name}
+        </h3>
+        <p className="text-sm font-extrabold text-[#E06D44] mt-1">
           {formatCurrency(item.price)}
         </p>
 

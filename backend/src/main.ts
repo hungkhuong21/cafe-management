@@ -30,6 +30,20 @@ async function bootstrap() {
     mkdirSync(uploadsDir, { recursive: true });
   }
 
+  // Tự động chuyển hướng khi khách quét QR trỏ vào backend domain sang frontend Vercel
+  const frontendUrl =
+    process.env.FRONTEND_URL ||
+    'https://cafe-management-lywb2huvn-hungkhuong21s-projects.vercel.app';
+
+  app.use((req: any, res: any, next: any) => {
+    const match = req.url.match(/^\/(?:api\/)?qr\/([^?#/]+)/);
+    if (match) {
+      const token = match[1];
+      return res.redirect(302, `${frontendUrl.replace(/\/+$/, '')}/qr/${token}`);
+    }
+    next();
+  });
+
   // Phục vụ thư mục ảnh tĩnh /uploads trên cả 2 đường dẫn
   app.useStaticAssets(uploadsDir, {
     prefix: '/uploads/',

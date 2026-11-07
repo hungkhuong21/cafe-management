@@ -11,11 +11,19 @@ export default function QrModal({ table, onClose, onTableUpdated }) {
   const [message, setMessage] = useState("");
 
   // Link QR luôn trỏ về Frontend (Vercel) để khách mở giao diện menu
-  const defaultBase =
-    localStorage.getItem("cf_qr_base_url") ||
-    (typeof window !== "undefined" ? window.location.origin : (import.meta.env.VITE_PUBLIC_URL || ""));
+  const getFrontendOrigin = () => {
+    const saved = localStorage.getItem("cf_qr_base_url");
+    if (saved && !saved.includes("onrender.com") && !saved.includes(":5000")) {
+      return saved;
+    }
+    // Dọn dẹp cache cũ nếu từng lưu trỏ về Render backend
+    if (saved) localStorage.removeItem("cf_qr_base_url");
+    return typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : (import.meta.env.VITE_PUBLIC_URL || "https://cafe-management-lywb2huvn-hungkhuong21s-projects.vercel.app");
+  };
 
-  const [baseUrl] = useState(defaultBase);
+  const [baseUrl] = useState(getFrontendOrigin);
 
   const qrToken = currentTable.qr_token || currentTable.number || currentTable.id;
   const url = `${baseUrl.replace(/\/+$/, "")}/qr/${qrToken}`;

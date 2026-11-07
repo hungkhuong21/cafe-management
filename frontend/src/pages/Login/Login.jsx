@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Coffee, Lock, User } from "lucide-react";
 import api from "../../services/api";
-import { useEffect } from "react";
+import { getImageUrl } from "../../utils/imageUrl";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -10,20 +10,41 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [logoError, setLogoError] = useState(false);
 
   // Đồng bộ Logo và Tên quán từ cài đặt (giống Sidebar & QrMenu)
-  const storeInfo = (() => {
+  const [storeInfo, setStoreInfo] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("cf_store")) || null;
     } catch {
       return null;
     }
-  })();
+  });
+
   const storeName = storeInfo?.name || "CafeFlow";
   const storeLogo = storeInfo?.logo || null;
   const storeTagline = storeInfo?.branch
     ? `${storeInfo.branch} • Quản lý quán cà phê`
     : "Hệ thống quản lý quán cà phê";
+
+  // Tải cấu hình quán từ backend nếu chưa có
+  useEffect(() => {
+    const fetchStore = async () => {
+      try {
+        const res = await api.get("/settings");
+        if (res.data) {
+          const s = {
+            name: res.data.name || "CafeFlow",
+            branch: res.data.branch || "Nguyễn Huệ • HCM",
+            logo: res.data.logo_url || null,
+          };
+          setStoreInfo(s);
+          localStorage.setItem("cf_store", JSON.stringify(s));
+        }
+      } catch {}
+    };
+    fetchStore();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -110,11 +131,12 @@ export default function Login() {
               className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-lg overflow-hidden"
               style={{ background: "linear-gradient(135deg, #E06D44, #c8522e)" }}
             >
-              {storeLogo ? (
+              {storeLogo && !logoError ? (
                 <img
-                  src={storeLogo}
+                  src={getImageUrl(storeLogo)}
                   alt={storeName}
                   className="w-full h-full object-cover"
+                  onError={() => setLogoError(true)}
                 />
               ) : (
                 <Coffee className="w-8 h-8 text-white" />
