@@ -35,11 +35,6 @@ export class AuthService implements OnModuleInit {
       `);
 
       // Đảm bảo luôn có tài khoản admin (admin / admin123)
-      await this.db.query(`
-        INSERT INTO users (username, password_hash, display_name, role)
-        VALUES ('admin', 'admin123', 'Admin', 'Quản lý cửa hàng')
-        ON CONFLICT (username) DO NOTHING;
-      `);
       this.logger.log('Đã kiểm tra và đảm bảo tài khoản admin (admin / admin123) sẵn sàng');
     } catch (err) {
       this.logger.error('Lỗi khởi tạo bảng users:', err);

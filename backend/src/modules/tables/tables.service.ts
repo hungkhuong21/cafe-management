@@ -20,18 +20,58 @@ export class TablesService implements OnModuleInit {
   }
 
   // Đảm bảo cột qr_token tồn tại trên bảng dining_tables
+  
+  // Khởi tạo cấu trúc database cho khu vực và bàn ăn
   private async initTablesSchema() {
     try {
+      // 1. Tạo bảng zones trước
+      await this.db.query(`
+        CREATE TABLE IF NOT EXISTS zones (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0
+        );
+      `);
+
+      // Đảm bảo cột sort_order tồn tại nếu bảng đã có từ trước
+      await this.db.query(`
+        ALTER TABLE zones
+        ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;
+      `);
+
+      // 2. Tạo bảng dining_tables
+      await this.db.query(`
+        CREATE TABLE IF NOT EXISTS dining_tables (
+          id SERIAL PRIMARY KEY,
+          number INTEGER NOT NULL UNIQUE,
+          zone_id INTEGER REFERENCES zones(id) ON DELETE SET NULL,
+          seats INTEGER NOT NULL DEFAULT 4,
+          status VARCHAR(30) NOT NULL DEFAULT 'free',
+          qr_token VARCHAR(32) NOT NULL UNIQUE
+            DEFAULT substr(md5(random()::text || clock_timestamp()::text), 1, 12)
+        );
+      `);
+
+      // 3. Đảm bảo qr_token tồn tại trên bảng cũ
       await this.db.query(`
         ALTER TABLE dining_tables
         ADD COLUMN IF NOT EXISTS qr_token VARCHAR(32) NOT NULL UNIQUE
         DEFAULT substr(md5(random()::text || clock_timestamp()::text), 1, 12);
       `);
-      this.logger.log('Đã kiểm tra cấu trúc cột qr_token trên bảng dining_tables');
+
+      this.logger.log(
+        'Đã khởi tạo thành công bảng zones và dining_tables'
+      );
+
     } catch (err) {
-      this.logger.warn('Ghi chú cấu trúc bảng dining_tables:', err);
+      this.logger.error(
+        'Lỗi khởi tạo cấu trúc database:',
+        err instanceof Error ? err.stack : String(err)
+      );
+      throw err;
     }
   }
+
 
   // =========================================================================
   // 1. ZONES (Khu vực)
