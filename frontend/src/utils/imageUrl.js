@@ -4,10 +4,16 @@
  */
 export function getImageUrl(url) {
   if (!url || typeof url !== "string") return null;
-  const trimmed = url.trim();
+  let trimmed = url.trim();
   if (!trimmed) return null;
 
-  // Nếu là link tuyệt đối (http, https, blob, base64 data)
+  // Nếu URL cũ có chứa localhost hoặc IP LAN (ví dụ: http://localhost:5000/uploads/...)
+  // -> chuẩn hóa về dạng tương đối /uploads/... để luôn trỏ đúng về Render
+  if (trimmed.includes("/uploads/")) {
+    trimmed = trimmed.substring(trimmed.indexOf("/uploads/"));
+  }
+
+  // Nếu là link ảnh online tuyệt đối bên ngoài (Cloudinary, Unsplash, blob, base64...)
   if (
     trimmed.startsWith("http://") ||
     trimmed.startsWith("https://") ||

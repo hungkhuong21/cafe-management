@@ -15,10 +15,6 @@ dist-ssr/
 .env.test.local
 .env.production.local
 
-# Backend uploads (media files)
-backend/uploads/*
-!backend/uploads/.gitkeep
-
 # Logs
 logs/
 *.log
