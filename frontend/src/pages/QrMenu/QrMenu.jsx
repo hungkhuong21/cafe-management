@@ -387,19 +387,22 @@ export default function QrMenuPage() {
         })),
       };
 
-      await api.post("/orders", payload);
+      const res = await api.post("/orders", payload);
 
       // Cập nhật trạng thái bàn hiện tại thành 'occupied' (đang dùng)
       if (currentObj?.id) {
         api.patch(`/tables/${currentObj.id}/status`, { status: "occupied" }).catch(() => {});
       }
-    } catch (err) {
-      console.warn("Gửi đơn hàng:", err);
-    } finally {
-      setSubmitting(false);
+
       setOrderSuccess(true);
       setCart([]);
       setCurrentScreen("menu");
+    } catch (err) {
+      console.error("Lỗi gửi đơn hàng:", err);
+      const msg = err.response?.data?.message || err.message || "Gửi đơn thất bại!";
+      alert(`Không thể gửi đơn: ${Array.isArray(msg) ? msg[0] : msg}`);
+    } finally {
+      setSubmitting(false);
     }
   };
 
