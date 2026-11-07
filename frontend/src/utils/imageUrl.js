@@ -7,20 +7,27 @@ export function getImageUrl(url) {
   let trimmed = url.trim();
   if (!trimmed) return null;
 
-  // Nếu URL cũ có chứa localhost hoặc IP LAN (ví dụ: http://localhost:5000/uploads/...)
-  // -> chuẩn hóa về dạng tương đối /uploads/... để luôn trỏ đúng về Render
-  if (trimmed.includes("/uploads/")) {
-    trimmed = trimmed.substring(trimmed.indexOf("/uploads/"));
-  }
-
-  // Nếu là link ảnh online tuyệt đối bên ngoài (Cloudinary, Unsplash, blob, base64...)
+  // 1. Nếu là data URI (Base64), blob URL, hoặc inline SVG -> trả về ngay lập tức
   if (
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://") ||
-    trimmed.startsWith("blob:") ||
-    trimmed.startsWith("data:")
+    trimmed.startsWith("data:") ||
+    trimmed.startsWith("blob:")
   ) {
     return trimmed;
+  }
+
+  // 2. Nếu là link online tuyệt đối bên ngoài (Unsplash, Cloudinary, Imgur, CDN...)
+  if (
+    (trimmed.startsWith("http://") || trimmed.startsWith("https://")) &&
+    !trimmed.includes("localhost") &&
+    !trimmed.includes("127.0.0.1") &&
+    !trimmed.includes("onrender.com/uploads")
+  ) {
+    return trimmed;
+  }
+
+  // 3. Nếu là file upload (/uploads/...) hoặc link localhost cũ
+  if (trimmed.includes("/uploads/")) {
+    trimmed = trimmed.substring(trimmed.indexOf("/uploads/"));
   }
 
   // Tự động tải ảnh upload từ Backend Render

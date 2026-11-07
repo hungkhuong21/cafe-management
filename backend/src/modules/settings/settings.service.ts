@@ -1,10 +1,29 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 @Injectable()
-export class SettingsService {
+export class SettingsService implements OnModuleInit {
+  private readonly logger = new Logger(SettingsService.name);
+
   constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
+
+  async onModuleInit() {
+    try {
+      await this.db.query(`
+        ALTER TABLE store_settings ALTER COLUMN logo_url TYPE TEXT;
+      `).catch(() => {});
+
+      // Nếu logo cũ trỏ vào file upload cục bộ bị mất trên Render -> xóa để fallback về logo icon chuẩn
+      await this.db.query(`
+        UPDATE store_settings
+        SET logo_url = NULL
+        WHERE logo_url LIKE '/uploads/%' OR logo_url LIKE 'http://localhost%';
+      `).catch(() => {});
+    } catch (e) {
+      this.logger.warn('Ghi chú kiểm tra cột logo_url:', e);
+    }
+  }
 
   async getSettings() {
     // Đảm bảo luôn tồn tại bản ghi id = 1

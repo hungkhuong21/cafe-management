@@ -44,12 +44,20 @@ async function bootstrap() {
     next();
   });
 
-  // Phục vụ thư mục ảnh tĩnh /uploads trên cả 2 đường dẫn
+  // Phục vụ thư mục ảnh tĩnh /uploads trên cả 2 đường dẫn với CORS mở
   app.useStaticAssets(uploadsDir, {
     prefix: '/uploads/',
+    setHeaders: (res) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
   });
   app.useStaticAssets(uploadsDir, {
     prefix: '/api/uploads/',
+    setHeaders: (res) => {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    },
   });
 
   const port = process.env.PORT || 5000;

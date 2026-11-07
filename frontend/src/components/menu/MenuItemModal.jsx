@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { X, Utensils, Camera } from "lucide-react";
 import api from "../../services/api";
 import { getImageUrl } from "../../utils/imageUrl";
+import { compressImage } from "../../utils/imageCompressor";
 
 export default function MenuItemModal({
   isOpen,
@@ -64,33 +65,35 @@ export default function MenuItemModal({
 
   if (!isOpen) return null;
 
-  // Xử lý chọn ảnh từ máy tính
+  // Xử lý chọn ảnh từ máy tính (nén chuẩn sắc nét, lưu vĩnh viễn vào CSDL)
   const handleImageFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Đọc ảnh sang Base64 để đảm bảo luôn hiển thị được trên mọi thiết bị (kể cả khi server free khởi động lại)
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const b64 = ev.target.result;
-      setImagePreview(b64);
-      setImageUrl(b64);
-    };
-    reader.readAsDataURL(file);
-
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
       setUploadingImage(true);
-      const res = await api.post("/menu-items/upload-image", formData, {
+      setError("");
+
+      // 1. Nén ảnh sang Base64 chuẩn WebP/JPEG, kích thước 800px (~40-70KB)
+      // Lưu thẳng vào CSDL PostgreSQL để ảnh không bao giờ bị mất khi Render redeploy
+      const compressedB64 = await compressImage(file, 800, 0.82);
+      setImagePreview(compressedB64);
+      setImageUrl(compressedB64);
+
+      // 2. Dự phòng upload thêm lên server
+      const formData = new FormData();
+      formData.append("image", file);
+      api.post("/menu-items/upload-image", formData, {
         headers: { "Content-Type": "multipart/form-data" },
-      });
-      if (res.data?.imageUrl) {
-        setImageUrl(res.data.imageUrl);
-      }
+      }).catch(() => {});
     } catch (err) {
-      console.warn("Upload file server lỗi, tự động dùng Base64 dự phòng:", err);
+      console.warn("Lỗi nén ảnh, dùng FileReader gốc:", err);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setImagePreview(ev.target.result);
+        setImageUrl(ev.target.result);
+      };
+      reader.readAsDataURL(file);
     } finally {
       setUploadingImage(false);
     }

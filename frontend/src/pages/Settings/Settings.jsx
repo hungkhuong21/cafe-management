@@ -17,6 +17,7 @@ import {
 import { usePageHeader } from "../../context/PageHeaderContext";
 import api from "../../services/api";
 import { getImageUrl } from "../../utils/imageUrl";
+import { compressImage } from "../../utils/imageCompressor";
 
 // ─── Keys ────────────────────────────────────────────────────────────────────
 const STORE_KEY = "cf_store";
@@ -171,33 +172,30 @@ export default function Settings() {
     fetchMe();
   }, []);
 
-  // ── Logo upload (Lưu file lên server) ────────────────────────────────────
+  // ── Logo upload (Nén chuẩn nét, dung lượng nhẹ, lưu vĩnh viễn vào CSDL) ──
   const handleLogoChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 1. Xem trước tạm thời bằng FileReader
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      setStore((s) => ({ ...s, logo: ev.target.result }));
-    };
-    reader.readAsDataURL(file);
-
-    // 2. Upload file thật lên máy chủ backend
-    const formData = new FormData();
-    formData.append("logo", file);
-
     try {
       setUploadingLogo(true);
-      const res = await api.post("/settings/upload-logo", formData, {
+      // Nén logo kích thước chuẩn 500px, chất lượng cao, dung lượng ~30KB
+      const compressedLogo = await compressImage(file, 500, 0.85);
+      setStore((s) => ({ ...s, logo: compressedLogo }));
+
+      // Dự phòng upload lên backend
+      const formData = new FormData();
+      formData.append("logo", file);
+      api.post("/settings/upload-logo", formData, {
         headers: { "Content-Type": "multipart/form-data" },
-      });
-      if (res.data?.logo_url) {
-        setStore((s) => ({ ...s, logo: res.data.logo_url }));
-      }
+      }).catch(() => {});
     } catch (err) {
-      console.error("Lỗi upload logo lên server:", err);
-      alert("Không thể tải ảnh lên máy chủ, vui lòng thử lại!");
+      console.error("Lỗi nén logo:", err);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setStore((s) => ({ ...s, logo: ev.target.result }));
+      };
+      reader.readAsDataURL(file);
     } finally {
       setUploadingLogo(false);
     }
