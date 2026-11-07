@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #f26b38;
+  --color-brand-soft: #fdeee7;
+  --color-sidebar: #3a2a21;
+  --color-sidebar-active: #4d3a2f;
+  --color-page: #f6f3ef;
+}
+
+/* Ẩn thanh cuộn thanh lịch cho trải nghiệm di động */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Đảm bảo trang QR Menu chiếm toàn bộ chiều cao màn hình thực trên di động */
+html {
+  height: 100%;
+}
+body, #root {
+  min-height: 100%;
+}
+
+/* Safe area cho iPhone có notch / Dynamic Island / home bar */
+.safe-pb {
+  padding-bottom: max(14px, env(safe-area-inset-bottom, 14px));
+}
+.safe-pt {
+  padding-top: max(10px, env(safe-area-inset-top, 10px));
+}
+
+/* Toàn trang bình thường (không phải QR) cho phép cuộn */
+.page-scrollable {
+  overflow: auto;
+  height: 100%;
+}
