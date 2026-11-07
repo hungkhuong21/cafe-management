@@ -151,11 +151,11 @@ export default function Login() {
           </div>
 
           {/* Title */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold" style={{ color: "#2E2018" }}>
+          <div className="mb-8 text-center">
+            <h2 className="text-2xl font-extrabold text-stone-900 tracking-tight">
               Đăng nhập
             </h2>
-            <p className="text-sm mt-1" style={{ color: "#9e8c7e" }}>
+            <p className="text-sm mt-1.5 text-stone-500 font-medium">
               Chào mừng trở lại! Vui lòng nhập thông tin.
             </p>
           </div>
