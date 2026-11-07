@@ -371,15 +371,24 @@ export default function QrMenuPage() {
     try {
       const currentObj = allDbTables.find(
         (t) =>
+          String(t.qr_token) === String(paramTableId) ||
+          String(t.number) === String(tableNumber) ||
           Number(t.number) === parseInt(tableNumber, 10) ||
           t.id === parseInt(tableNumber, 10)
       );
-      const targetTableId = currentObj ? currentObj.id : parseInt(tableNumber, 10);
+      const parsedNum = parseInt(tableNumber, 10);
+      const targetTableId = currentObj
+        ? currentObj.id
+        : (!isNaN(parsedNum) ? parsedNum : null);
+
+      const tableLabel = currentObj
+        ? `Bàn ${String(currentObj.number).padStart(2, "0")}`
+        : `Bàn ${tableNumber}`;
 
       const payload = {
         table_id: targetTableId,
         service_type: "dine_in",
-        customer_name: `Bàn ${tableNumber}`,
+        customer_name: tableLabel,
         items: cart.map((i) => ({
           menu_item_id: i.id,
           quantity: i.quantity,
