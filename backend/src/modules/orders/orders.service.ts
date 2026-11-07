@@ -1,10 +1,26 @@
-import { Injectable, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException, OnModuleInit, Logger } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from './dto/order.dto';
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(@Inject(DatabaseService) private readonly db: DatabaseService) {}
+
+  async onModuleInit() {
+    try {
+      await this.db.query(`
+        CREATE SEQUENCE IF NOT EXISTS orders_code_seq START 2001;
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS code VARCHAR(50);
+        ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS cost NUMERIC(12,0) DEFAULT 0;
+        ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(12,0) DEFAULT 0;
+      `);
+      this.logger.log('Đã kiểm tra và đảm bảo cấu trúc bảng orders / order_items sẵn sàng');
+    } catch (err) {
+      this.logger.warn('Ghi chú kiểm tra cấu trúc orders:', err);
+    }
+  }
 
   async findAll() {
     const res = await this.db.query(`
@@ -90,9 +106,17 @@ export class OrdersService {
       const preparedItems: { id: number; name: string; quantity: number; unit_price: number; unit_cost: number }[] = [];
 
       for (const item of dto.items) {
-        const itemRes = await client.query('SELECT name, price, cost FROM menu_items WHERE id = $1', [
-          item.menu_item_id,
-        ]);
+        let itemRes;
+        try {
+          itemRes = await client.query('SELECT name, price, COALESCE(cost, 0) as cost FROM menu_items WHERE id = $1', [
+            item.menu_item_id,
+          ]);
+        } catch (_) {
+          itemRes = await client.query('SELECT name, price, 0 as cost FROM menu_items WHERE id = $1', [
+            item.menu_item_id,
+          ]);
+        }
+
         if (itemRes.rows.length === 0) {
           throw new BadRequestException(`Món #${item.menu_item_id} không tồn tại!`);
         }
@@ -135,22 +159,46 @@ export class OrdersService {
         .filter(Boolean)
         .join(' | ');
 
-      // 3. Tạo record orders
-      const orderRes = await client.query(
-        `INSERT INTO orders (table_id, status, note) 
-         VALUES ($1, 'new', $2) 
-         RETURNING *`,
-        [tableId, combinedNote || null],
-      );
+      // 3. Tạo record orders kèm mã code tự sinh an toàn
+      let code = `CF-${Math.floor(1000 + Math.random() * 9000)}`;
+      try {
+        const seq = await client.query("SELECT 'CF-' || nextval('orders_code_seq') as code");
+        if (seq.rows[0]?.code) code = seq.rows[0].code;
+      } catch (_) {}
+
+      let orderRes;
+      try {
+        orderRes = await client.query(
+          `INSERT INTO orders (table_id, status, note, code) 
+           VALUES ($1, 'new', $2, $3) 
+           RETURNING *`,
+          [tableId, combinedNote || null, code],
+        );
+      } catch (_) {
+        orderRes = await client.query(
+          `INSERT INTO orders (table_id, status, note) 
+           VALUES ($1, 'new', $2) 
+           RETURNING *`,
+          [tableId, combinedNote || null],
+        );
+      }
       const order = orderRes.rows[0];
 
       // 4. Tạo record order_items
       for (const item of preparedItems) {
-        await client.query(
-          `INSERT INTO order_items (order_id, menu_item_id, name, unit_price, unit_cost, quantity) 
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [order.id, item.id, item.name, item.unit_price, item.unit_cost, item.quantity],
-        );
+        try {
+          await client.query(
+            `INSERT INTO order_items (order_id, menu_item_id, name, unit_price, unit_cost, quantity) 
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [order.id, item.id, item.name, item.unit_price, item.unit_cost, item.quantity],
+          );
+        } catch (_) {
+          await client.query(
+            `INSERT INTO order_items (order_id, menu_item_id, name, unit_price, quantity) 
+             VALUES ($1, $2, $3, $4, $5)`,
+            [order.id, item.id, item.name, item.unit_price, item.quantity],
+          );
+        }
       }
 
       // 5. Cập nhật trạng thái bàn sang 'occupied' (đang dùng)

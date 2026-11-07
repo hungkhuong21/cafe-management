@@ -399,7 +399,13 @@ export default function QrMenuPage() {
       setCurrentScreen("menu");
     } catch (err) {
       console.error("Lỗi gửi đơn hàng:", err);
-      const msg = err.response?.data?.message || err.message || "Gửi đơn thất bại!";
+      const data = err.response?.data;
+      const errorObj = data?.error;
+      const msg =
+        (typeof errorObj === "object" ? errorObj?.message : errorObj) ||
+        data?.message ||
+        err.message ||
+        "Gửi đơn thất bại!";
       alert(`Không thể gửi đơn: ${Array.isArray(msg) ? msg[0] : msg}`);
     } finally {
       setSubmitting(false);
