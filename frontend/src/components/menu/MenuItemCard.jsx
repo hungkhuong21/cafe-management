@@ -42,91 +42,113 @@ export default function MenuItemCard({
   }, [showMenu]);
 
   return (
-    <div className="relative flex gap-3.5 rounded-2xl bg-white p-3.5 shadow-sm border border-stone-100 hover:shadow-md transition">
-      {/* Ảnh món */}
+    <div className="group relative flex gap-3.5 rounded-3xl bg-white p-3.5 border border-stone-200/80 shadow-xs hover:border-orange-300 hover:shadow-lg hover:shadow-orange-500/5 transition-all duration-200">
+      {/* Ảnh món bo góc lớn, zoom nhẹ khi hover */}
       {displayImage && !imgError ? (
-        <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-stone-50 border border-stone-200/60 shadow-2xs">
+        <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-stone-100 border border-stone-200/60 shadow-2xs">
           <img
             src={displayImage}
             alt={item.name}
             onError={() => setImgError(true)}
-            className="h-full w-full object-cover transition duration-300 hover:scale-105"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-108"
           />
         </div>
       ) : (
-        <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl bg-stone-100 border border-stone-200/50 text-3xl select-none">
+        <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-stone-100/90 border border-stone-200/60 text-3xl select-none text-stone-400 group-hover:scale-105 transition-transform duration-300">
           {item.emoji || "☕"}
         </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex items-start justify-between gap-1">
-          <span className="text-[10px] font-bold tracking-wider text-brand uppercase truncate">
-            {categoryName}
-          </span>
+      {/* Thông tin món */}
+      <div className="flex min-w-0 flex-1 flex-col justify-between py-0.5">
+        <div>
+          {/* Hàng 1: Badge danh mục & Cụm nút thao tác */}
+          <div className="flex items-center justify-between gap-1">
+            <span className="inline-block max-w-[130px] truncate rounded-lg bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-700 border border-orange-200/50">
+              {categoryName || item.categoryName || "Thực đơn"}
+            </span>
 
-          {/* Menu 3 chấm */}
-          <div className="relative" ref={menuRef}>
-            <button
-              type="button"
-              onClick={() => setShowMenu((prev) => !prev)}
-              aria-label="Tùy chọn món"
-              title="Tùy chọn"
-              className={`flex h-6 w-6 items-center justify-center rounded-lg transition ${
-                showMenu
-                  ? "bg-stone-200 text-stone-800"
-                  : "text-stone-400 hover:bg-stone-100 hover:text-stone-600"
-              }`}
-            >
-              <MoreHorizontal size={15} />
-            </button>
+            <div className="flex items-center gap-1" ref={menuRef}>
+              {/* Nút sửa nhanh 1-click */}
+              <button
+                type="button"
+                onClick={() => onEdit && onEdit(item)}
+                aria-label="Chỉnh sửa món"
+                title="Chỉnh sửa món"
+                className="flex h-6 w-6 items-center justify-center rounded-lg text-stone-400 hover:bg-orange-50 hover:text-orange-600 transition"
+              >
+                <Pencil size={13} />
+              </button>
 
-            {showMenu && (
-              <div className="absolute right-0 top-full mt-1 z-30 w-36 rounded-2xl bg-white p-1.5 shadow-xl border border-stone-200/80 animate-in fade-in zoom-in-95">
+              {/* Nút tùy chọn 3 chấm */}
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowMenu(false);
-                    if (onEdit) onEdit(item);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-orange-50 hover:text-orange-600 transition"
+                  onClick={() => setShowMenu((prev) => !prev)}
+                  aria-label="Tùy chọn khác"
+                  title="Tùy chọn khác"
+                  className={`flex h-6 w-6 items-center justify-center rounded-lg transition ${
+                    showMenu
+                      ? "bg-stone-200 text-stone-800"
+                      : "text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+                  }`}
                 >
-                  <Pencil size={13} className="text-stone-400 group-hover:text-orange-600" />
-                  <span>Chỉnh sửa</span>
+                  <MoreHorizontal size={14} />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowMenu(false);
-                    if (onDelete) onDelete(item);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
-                >
-                  <Trash2 size={13} className="text-red-500" />
-                  <span>Xóa món</span>
-                </button>
+
+                {showMenu && (
+                  <div className="absolute right-0 top-full mt-1.5 z-30 w-36 rounded-2xl bg-white p-1.5 shadow-xl border border-stone-200/80 animate-in fade-in zoom-in-95">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMenu(false);
+                        if (onEdit) onEdit(item);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-orange-50 hover:text-orange-600 transition"
+                    >
+                      <Pencil size={13} className="text-stone-400 group-hover:text-orange-600" />
+                      <span>Chỉnh sửa</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMenu(false);
+                        if (onDelete) onDelete(item);
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 transition"
+                    >
+                      <Trash2 size={13} className="text-red-500" />
+                      <span>Xóa món</span>
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
+
+          {/* Tên món */}
+          <h3
+            className="mt-1 line-clamp-2 font-extrabold text-stone-900 text-sm leading-snug break-words group-hover:text-orange-950 transition-colors"
+            title={item.name}
+          >
+            {item.name}
+          </h3>
+
+          {/* Giá tiền */}
+          <p className="text-sm sm:text-base font-black text-[#E06D44] mt-0.5 tracking-tight">
+            {formatCurrency(item.price)}
+          </p>
         </div>
 
-        <h3
-          className="mt-0.5 line-clamp-2 font-bold text-stone-900 text-sm leading-snug break-words"
-          title={item.name}
-        >
-          {item.name}
-        </h3>
-        <p className="text-sm font-extrabold text-[#E06D44] mt-1">
-          {formatCurrency(item.price)}
-        </p>
-
-        <div className="mt-auto flex items-center justify-between pt-2">
+        {/* Chân card: Trạng thái & Công tắc bật/tắt bán */}
+        <div className="mt-2 flex items-center justify-between border-t border-stone-100/80 pt-2">
           <span
-            className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${status.pill}`}
+            className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${status.pill}`}
           >
             <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
             {status.label}
           </span>
+
           <Switch
             checked={isOn}
             onChange={() => onToggle && onToggle()}

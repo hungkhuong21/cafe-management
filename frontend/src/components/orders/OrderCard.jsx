@@ -75,10 +75,17 @@ export default function OrderCard({
             {itemCount} món • {order.payment}
           </p>
         ) : (
-          order.items.map((i) => (
-            <p key={i.name}>
-              {i.qty} × {i.name}
-            </p>
+          order.items.map((i, idx) => (
+            <div key={idx} className="leading-tight">
+              <span className="font-medium text-stone-800">
+                {i.qty} × {i.name}
+              </span>
+              {i.note && (
+                <span className="block text-[10px] font-semibold text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 mt-0.5 w-fit border border-amber-200/50">
+                  ↳ {i.note}
+                </span>
+              )}
+            </div>
           ))
         )}
       </div>

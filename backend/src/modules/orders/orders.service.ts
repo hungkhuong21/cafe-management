@@ -15,6 +15,7 @@ export class OrdersService implements OnModuleInit {
         ALTER TABLE orders ADD COLUMN IF NOT EXISTS code VARCHAR(50);
         ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS cost NUMERIC(12,0) DEFAULT 0;
         ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(12,0) DEFAULT 0;
+        ALTER TABLE order_items ADD COLUMN IF NOT EXISTS note TEXT;
       `);
       this.logger.log('Đã kiểm tra và đảm bảo cấu trúc bảng orders / order_items sẵn sàng');
     } catch (err) {
@@ -42,7 +43,8 @@ export class OrdersService implements OnModuleInit {
               'menu_item_id', oi.menu_item_id,
               'name', oi.name,
               'quantity', oi.quantity,
-              'unit_price', oi.unit_price
+              'unit_price', oi.unit_price,
+              'note', COALESCE(oi.note, '')
             )
           ) FILTER (WHERE oi.id IS NOT NULL), '[]'
         ) as items
@@ -76,7 +78,8 @@ export class OrdersService implements OnModuleInit {
               'menu_item_id', oi.menu_item_id,
               'name', oi.name,
               'quantity', oi.quantity,
-              'unit_price', oi.unit_price
+              'unit_price', oi.unit_price,
+              'note', COALESCE(oi.note, '')
             )
           ) FILTER (WHERE oi.id IS NOT NULL), '[]'
         ) as items
@@ -103,7 +106,7 @@ export class OrdersService implements OnModuleInit {
       await client.query('BEGIN');
 
       // 1. Kiểm tra và lấy thông tin món từ menu_items
-      const preparedItems: { id: number; name: string; quantity: number; unit_price: number; unit_cost: number }[] = [];
+      const preparedItems: { id: number; name: string; quantity: number; unit_price: number; unit_cost: number; note: string }[] = [];
 
       for (const item of dto.items) {
         let itemRes;
@@ -126,6 +129,7 @@ export class OrdersService implements OnModuleInit {
           quantity: item.quantity,
           unit_price: Number(itemRes.rows[0].price),
           unit_cost: Number(itemRes.rows[0].cost || 0),
+          note: item.note ? String(item.note).trim() : '',
         });
       }
 
@@ -184,20 +188,28 @@ export class OrdersService implements OnModuleInit {
       }
       const order = orderRes.rows[0];
 
-      // 4. Tạo record order_items
+      // 4. Tạo record order_items kèm ghi chú từng món
       for (const item of preparedItems) {
         try {
           await client.query(
-            `INSERT INTO order_items (order_id, menu_item_id, name, unit_price, unit_cost, quantity) 
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [order.id, item.id, item.name, item.unit_price, item.unit_cost, item.quantity],
+            `INSERT INTO order_items (order_id, menu_item_id, name, unit_price, unit_cost, quantity, note) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [order.id, item.id, item.name, item.unit_price, item.unit_cost, item.quantity, item.note || null],
           );
         } catch (_) {
-          await client.query(
-            `INSERT INTO order_items (order_id, menu_item_id, name, unit_price, quantity) 
-             VALUES ($1, $2, $3, $4, $5)`,
-            [order.id, item.id, item.name, item.unit_price, item.quantity],
-          );
+          try {
+            await client.query(
+              `INSERT INTO order_items (order_id, menu_item_id, name, unit_price, quantity, note) 
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [order.id, item.id, item.name, item.unit_price, item.quantity, item.note || null],
+            );
+          } catch (__) {
+            await client.query(
+              `INSERT INTO order_items (order_id, menu_item_id, name, unit_price, quantity) 
+               VALUES ($1, $2, $3, $4, $5)`,
+              [order.id, item.id, item.name, item.unit_price, item.quantity],
+            );
+          }
         }
       }
 

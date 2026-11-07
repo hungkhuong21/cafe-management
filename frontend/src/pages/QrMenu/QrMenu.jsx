@@ -266,7 +266,9 @@ export default function QrMenuPage() {
 
   const updateItemNote = (id, newNote) => {
     setCart((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, note: newNote } : item))
+      prev.map((item) =>
+        String(item.id) === String(id) ? { ...item, note: newNote } : item
+      )
     );
   };
 
@@ -935,9 +937,11 @@ export default function QrMenuPage() {
 
                     <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px]">
                       <button
+                        type="button"
                         onClick={() => {
-                          setEditingNoteItem(item);
-                          setTempNoteText(item.note || "");
+                          const fresh = cart.find((c) => String(c.id) === String(item.id)) || item;
+                          setEditingNoteItem(fresh);
+                          setTempNoteText(fresh.note || "");
                         }}
                         className="text-stone-500 hover:text-stone-800 text-left truncate flex items-center gap-1.5 flex-1 mr-2"
                       >
@@ -951,9 +955,11 @@ export default function QrMenuPage() {
                         )}
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
-                          setEditingNoteItem(item);
-                          setTempNoteText(item.note || "");
+                          const fresh = cart.find((c) => String(c.id) === String(item.id)) || item;
+                          setEditingNoteItem(fresh);
+                          setTempNoteText(fresh.note || "");
                         }}
                         className="text-[11px] font-bold text-[#E06D44] hover:underline shrink-0"
                       >
@@ -1303,11 +1309,14 @@ export default function QrMenuPage() {
                       key={tag}
                       type="button"
                       onClick={() => {
-                        setTempNoteText((prev) =>
-                          prev ? `${prev}, ${tag}` : tag
-                        );
+                        setTempNoteText((prev) => {
+                          const trimmed = (prev || "").trim();
+                          if (!trimmed) return tag;
+                          if (trimmed.includes(tag)) return trimmed;
+                          return `${trimmed}, ${tag}`;
+                        });
                       }}
-                      className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-[10px] font-semibold transition"
+                      className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-[10px] font-semibold transition active:scale-95"
                     >
                       +{tag}
                     </button>
@@ -1325,17 +1334,21 @@ export default function QrMenuPage() {
 
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={() => setEditingNoteItem(null)}
                   className="flex-1 py-2.5 rounded-xl border border-stone-200 text-xs font-semibold text-stone-600 hover:bg-stone-50"
                 >
                   Hủy
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
-                    updateItemNote(editingNoteItem.id, tempNoteText.trim());
+                    if (editingNoteItem) {
+                      updateItemNote(editingNoteItem.id, tempNoteText.trim());
+                    }
                     setEditingNoteItem(null);
                   }}
-                  className="flex-1 py-2.5 rounded-xl bg-[#2E2018] text-white text-xs font-bold hover:bg-[#433126] transition"
+                  className="flex-1 py-2.5 rounded-xl bg-[#2E2018] text-white text-xs font-bold hover:bg-[#433126] transition shadow-xs active:scale-95"
                 >
                   Lưu ghi chú
                 </button>

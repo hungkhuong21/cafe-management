@@ -135,7 +135,9 @@ export default function QuickOrderModal({ isOpen, onClose, onOrderCreated }) {
 
   const updateItemNote = (id, note) => {
     setCart((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, note } : item))
+      prev.map((item) =>
+        String(item.id) === String(id) ? { ...item, note } : item
+      )
     );
   };
 

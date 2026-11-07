@@ -124,6 +124,7 @@ export default function Orders() {
           name: i.name,
           qty: i.quantity || 1,
           price: Number(i.unit_price || 0),
+          note: i.note || "",
         })),
       }));
       setOrders(mapped);
