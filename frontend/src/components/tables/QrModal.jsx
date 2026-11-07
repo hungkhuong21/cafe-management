@@ -10,10 +10,10 @@ export default function QrModal({ table, onClose, onTableUpdated }) {
   const [regenerating, setRegenerating] = useState(false);
   const [message, setMessage] = useState("");
 
+  // Link QR luôn trỏ về Frontend (Vercel) để khách mở giao diện menu
   const defaultBase =
     localStorage.getItem("cf_qr_base_url") ||
-    import.meta.env.VITE_PUBLIC_URL ||
-    (typeof window !== "undefined" ? window.location.origin : "");
+    (typeof window !== "undefined" ? window.location.origin : (import.meta.env.VITE_PUBLIC_URL || ""));
 
   const [baseUrl] = useState(defaultBase);
 
@@ -65,6 +65,18 @@ export default function QrModal({ table, onClose, onTableUpdated }) {
       <p className="mt-4 text-center text-sm font-medium text-stone-700">
         Khách quét mã để xem menu và gọi món tại bàn này.
       </p>
+
+      {/* Hiển thị đường dẫn trực tiếp để test hoặc sao chép */}
+      <div className="mt-2 text-center text-xs break-all font-mono bg-stone-50 p-2.5 rounded-xl border border-stone-200/60">
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-orange-600 hover:underline font-semibold"
+        >
+          {url}
+        </a>
+      </div>
 
       {message && (
         <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 py-2 rounded-xl border border-emerald-100">
