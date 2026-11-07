@@ -30,9 +30,12 @@ async function bootstrap() {
     mkdirSync(uploadsDir, { recursive: true });
   }
 
-  // Phục vụ thư mục ảnh tĩnh /uploads
+  // Phục vụ thư mục ảnh tĩnh /uploads trên cả 2 đường dẫn
   app.useStaticAssets(uploadsDir, {
     prefix: '/uploads/',
+  });
+  app.useStaticAssets(uploadsDir, {
+    prefix: '/api/uploads/',
   });
 
   const port = process.env.PORT || 5000;

@@ -69,8 +69,14 @@ export default function MenuItemModal({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const localUrl = URL.createObjectURL(file);
-    setImagePreview(localUrl);
+    // Đọc ảnh sang Base64 để đảm bảo luôn hiển thị được trên mọi thiết bị (kể cả khi server free khởi động lại)
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const b64 = ev.target.result;
+      setImagePreview(b64);
+      setImageUrl(b64);
+    };
+    reader.readAsDataURL(file);
 
     const formData = new FormData();
     formData.append("image", file);
@@ -84,8 +90,7 @@ export default function MenuItemModal({
         setImageUrl(res.data.imageUrl);
       }
     } catch (err) {
-      console.warn("Dùng preview URL tạm thời:", err);
-      setImageUrl(localUrl);
+      console.warn("Upload file server lỗi, tự động dùng Base64 dự phòng:", err);
     } finally {
       setUploadingImage(false);
     }

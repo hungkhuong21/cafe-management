@@ -139,8 +139,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           address VARCHAR(255) DEFAULT '123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM',
           phone VARCHAR(30) DEFAULT '028 1234 5678',
           website VARCHAR(150) DEFAULT 'cafeflow.vn',
-          logo_url VARCHAR(255)
+          logo_url TEXT
         );
+
+        -- Đảm bảo các cột chứa ảnh là kiểu TEXT để chứa được cả ảnh Base64 và URL dài
+        ALTER TABLE menu_items ALTER COLUMN image_url TYPE TEXT;
+        ALTER TABLE store_settings ALTER COLUMN logo_url TYPE TEXT;
+        ALTER TABLE categories ALTER COLUMN image_url TYPE TEXT;
       `);
 
       // Kiểm tra nếu chưa có bàn nào thì nạp ngay dữ liệu mẫu

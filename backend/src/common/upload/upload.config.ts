@@ -1,10 +1,17 @@
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { BadRequestException } from '@nestjs/common';
 
 export const multerUploadConfig = {
   storage: diskStorage({
-    destination: './uploads',
+    destination: (req, file, callback) => {
+      const uploadDir = join(process.cwd(), 'uploads');
+      if (!existsSync(uploadDir)) {
+        mkdirSync(uploadDir, { recursive: true });
+      }
+      callback(null, uploadDir);
+    },
     filename: (req, file, callback) => {
       const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
       const ext = extname(file.originalname);
