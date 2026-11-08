@@ -121,10 +121,10 @@ export default function MenuItemModal({
       const payload = {
         name: name.trim(),
         category_id: Number(categoryId) || categoryId,
-        description: description.trim() || undefined,
+        description: description !== undefined ? description.trim() : null,
         price: Number(price),
-        promo_price: promoPrice ? Number(promoPrice) : undefined,
-        image_url: imageUrl || imagePreview || undefined,
+        promo_price: promoPrice ? Number(promoPrice) : null,
+        image_url: imageUrl || imagePreview || null,
         status,
         show_on_qr: showOnQr,
       };
@@ -139,8 +139,8 @@ export default function MenuItemModal({
       onClose();
     } catch (err) {
       console.warn("Lỗi lưu món:", err);
-      if (onMenuItemCreated) onMenuItemCreated();
-      onClose();
+      const msg = err.response?.data?.message || err.message || "Lỗi khi lưu món!";
+      setError(Array.isArray(msg) ? msg[0] : msg);
     } finally {
       setSubmitting(false);
     }

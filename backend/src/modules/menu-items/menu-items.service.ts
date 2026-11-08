@@ -14,9 +14,12 @@ export class MenuItemsService implements OnModuleInit {
 
   private async initSchemaAndDefaultImages() {
     try {
-      // 1. Mở rộng cột image_url sang TEXT để lưu trữ cả Base64 lẫn link CDN
+      // 1. Mở rộng cột image_url sang TEXT và đảm bảo các cột description, promo_price, show_on_qr tồn tại
       await this.db.query(`
         ALTER TABLE menu_items ALTER COLUMN image_url TYPE TEXT;
+        ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS description TEXT;
+        ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS promo_price NUMERIC(12,0);
+        ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS show_on_qr BOOLEAN DEFAULT TRUE;
       `).catch(() => {});
       await this.db.query(`
         ALTER TABLE categories ALTER COLUMN image_url TYPE TEXT;
@@ -83,28 +86,31 @@ export class MenuItemsService implements OnModuleInit {
   }
 
   async create(dto: CreateMenuItemDto) {
-    // Tự động kiểm tra và chèn các trường
+    // Tự động kiểm tra và chèn các trường đầy đủ (kèm description, promo_price, show_on_qr)
     try {
       const res = await this.db.query(
-        `INSERT INTO menu_items (name, category_id, price, image_url, status) 
-         VALUES ($1, $2, $3, $4, $5) 
+        `INSERT INTO menu_items (name, category_id, price, promo_price, description, image_url, status, show_on_qr) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
          RETURNING *`,
         [
           dto.name,
           dto.category_id,
           dto.price,
+          dto.promo_price ?? null,
+          dto.description ?? null,
           dto.image_url || null,
           dto.status || 'available',
+          dto.show_on_qr !== false,
         ],
       );
       return res.rows[0];
     } catch (err) {
       // Fallback
       const res = await this.db.query(
-        `INSERT INTO menu_items (name, price, category_id, image_url) 
-         VALUES ($1, $2, $3, $4) 
+        `INSERT INTO menu_items (name, price, category_id, description, image_url) 
+         VALUES ($1, $2, $3, $4, $5) 
          RETURNING *`,
-        [dto.name, dto.price, dto.category_id, dto.image_url || null],
+        [dto.name, dto.price, dto.category_id, dto.description || null, dto.image_url || null],
       );
       return res.rows[0];
     }
@@ -123,9 +129,17 @@ export class MenuItemsService implements OnModuleInit {
       fields.push(`price = $${idx++}`);
       values.push(dto.price);
     }
+    if (dto.promo_price !== undefined) {
+      fields.push(`promo_price = $${idx++}`);
+      values.push(dto.promo_price);
+    }
     if (dto.category_id !== undefined) {
       fields.push(`category_id = $${idx++}`);
       values.push(dto.category_id);
+    }
+    if (dto.description !== undefined) {
+      fields.push(`description = $${idx++}`);
+      values.push(dto.description);
     }
     if (dto.image_url !== undefined) {
       fields.push(`image_url = $${idx++}`);
@@ -134,6 +148,10 @@ export class MenuItemsService implements OnModuleInit {
     if (dto.status !== undefined) {
       fields.push(`status = $${idx++}`);
       values.push(dto.status);
+    }
+    if (dto.show_on_qr !== undefined) {
+      fields.push(`show_on_qr = $${idx++}`);
+      values.push(dto.show_on_qr);
     }
 
     if (fields.length === 0) return this.findOne(id);
