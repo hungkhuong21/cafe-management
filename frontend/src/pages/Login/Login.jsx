@@ -27,6 +27,10 @@ export default function Login() {
     ? `${storeInfo.branch} • Quản lý quán cà phê`
     : "Hệ thống quản lý quán cà phê";
 
+  useEffect(() => {
+    setLogoError(false);
+  }, [storeLogo]);
+
   // Tải cấu hình quán từ backend nếu chưa có
   useEffect(() => {
     const fetchStore = async () => {
@@ -134,7 +138,7 @@ export default function Login() {
               {storeLogo && !logoError ? (
                 <img
                   src={getImageUrl(storeLogo)}
-                  alt={storeName}
+                  alt=""
                   className="w-full h-full object-cover"
                   onError={() => setLogoError(true)}
                 />

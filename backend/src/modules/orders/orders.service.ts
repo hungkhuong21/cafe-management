@@ -111,24 +111,34 @@ export class OrdersService implements OnModuleInit {
       for (const item of dto.items) {
         let itemRes;
         try {
-          itemRes = await client.query('SELECT name, price, COALESCE(cost, 0) as cost FROM menu_items WHERE id = $1', [
-            item.menu_item_id,
-          ]);
+          itemRes = await client.query(
+            'SELECT name, price, status, COALESCE(cost, 0) as cost FROM menu_items WHERE id = $1',
+            [item.menu_item_id],
+          );
         } catch (_) {
-          itemRes = await client.query('SELECT name, price, 0 as cost FROM menu_items WHERE id = $1', [
-            item.menu_item_id,
-          ]);
+          itemRes = await client.query(
+            'SELECT name, price, status, 0 as cost FROM menu_items WHERE id = $1',
+            [item.menu_item_id],
+          );
         }
 
         if (itemRes.rows.length === 0) {
           throw new BadRequestException(`Món #${item.menu_item_id} không tồn tại!`);
         }
+
+        const menuItem = itemRes.rows[0];
+        if (menuItem.status === 'soldout' || menuItem.status === 'hidden') {
+          throw new BadRequestException(
+            `Món "${menuItem.name}" hiện đã tạm hết hàng hoặc tạm ngừng phục vụ!`,
+          );
+        }
+
         preparedItems.push({
           id: item.menu_item_id,
-          name: itemRes.rows[0].name,
+          name: menuItem.name,
           quantity: item.quantity,
-          unit_price: Number(itemRes.rows[0].price),
-          unit_cost: Number(itemRes.rows[0].cost || 0),
+          unit_price: Number(menuItem.price),
+          unit_cost: Number(menuItem.cost || 0),
           note: item.note ? String(item.note).trim() : '',
         });
       }

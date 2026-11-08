@@ -178,37 +178,55 @@ export default function QrMenuPage() {
     fetchTableInfo();
   }, [paramTableId, searchParams]);
 
-  // Tải danh mục và menu thực tế từ API
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [catsRes, menuRes] = await Promise.all([
-          api.get("/categories").catch(() => ({ data: [] })),
-          api.get("/menu-items").catch(() => ({ data: [] })),
-        ]);
+  // Tải danh mục và menu thực tế từ API (tự động đồng bộ realtime khi Admin đổi món)
+  const fetchMenuData = async () => {
+    try {
+      const [catsRes, menuRes] = await Promise.all([
+        api.get("/categories").catch(() => ({ data: [] })),
+        api.get("/menu-items").catch(() => ({ data: [] })),
+      ]);
 
-        if (catsRes.data && catsRes.data.length > 0) {
-          setCategories(catsRes.data);
-        }
-
-        if (menuRes.data && menuRes.data.length > 0) {
-          setMenuItems(menuRes.data);
-        }
-      } catch (err) {
-        console.warn("Lỗi tải danh mục & menu QR:", err);
-      } finally {
-        setLoading(false);
+      if (catsRes.data && catsRes.data.length > 0) {
+        setCategories(catsRes.data);
       }
+
+      if (menuRes.data && menuRes.data.length > 0) {
+        setMenuItems(menuRes.data);
+      }
+    } catch (err) {
+      console.warn("Lỗi tải danh mục & menu QR:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMenuData();
+
+    // Tự động kiểm tra thực đơn mỗi 4 giây để cập nhật ngay khi Admin tắt bán hoặc ẩn món
+    const timer = setInterval(() => {
+      fetchMenuData();
+    }, 4000);
+
+    const onFocus = () => fetchMenuData();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", onFocus);
     };
-    fetchData();
   }, []);
 
   const sourceItems = menuItems;
 
-  // Lọc món theo danh mục & tìm kiếm
+  // Lọc món theo danh mục & tìm kiếm (Tự động ẩn món 'hidden' hoặc show_on_qr = false)
   const filteredItems = useMemo(() => {
     return sourceItems.filter((item) => {
+      // 1. Không hiển thị món bị ẨN hoặc không cho phép hiện trên QR
+      if (item.status === "hidden" || item.show_on_qr === false) {
+        return false;
+      }
+
       const matchCat =
         selectedCategory === "all" ||
         item.category_id === selectedCategory ||
@@ -224,8 +242,13 @@ export default function QrMenuPage() {
     });
   }, [sourceItems, selectedCategory, searchQuery]);
 
-  // Thao tác giỏ hàng (áp dụng giá khuyến mãi nếu có)
+  // Thao tác giỏ hàng (áp dụng giá khuyến mãi và chặn món tạm hết)
   const addToCart = (item) => {
+    if (item.status === "soldout" || item.status === "hidden" || item.show_on_qr === false) {
+      alert(`Món "${item.name}" hiện đã tạm hết hàng, không thể đặt!`);
+      return;
+    }
+
     const originalPrice = Number(item.price) || 0;
     const promo = item.promo_price ? Number(item.promo_price) : null;
     const finalPrice = promo !== null && promo > 0 && promo < originalPrice ? promo : originalPrice;
@@ -374,6 +397,17 @@ export default function QrMenuPage() {
   // Gửi đơn hàng
   const handleSendOrder = async () => {
     if (cart.length === 0) return;
+
+    // Kiểm tra các món trong giỏ có bị tạm hết hoặc ẩn không
+    const unavailable = cart.find((i) => {
+      const current = menuItems.find((m) => String(m.id) === String(i.id));
+      return current && (current.status === "soldout" || current.status === "hidden" || current.show_on_qr === false);
+    });
+    if (unavailable) {
+      alert(`Món "${unavailable.name}" hiện đã tạm hết hàng hoặc tạm ngừng phục vụ. Vui lòng bấm vào giỏ hàng để xóa món này trước khi gửi đơn!`);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -648,6 +682,7 @@ export default function QrMenuPage() {
                 filteredItems.map((item, idx) => {
                   const inCartItem = cart.find((i) => String(i.id) === String(item.id));
                   const isSelected = !!inCartItem;
+                  const isSoldOut = item.status === "soldout";
                   const originalPrice = Number(item.price) || 0;
                   const promo = item.promo_price ? Number(item.promo_price) : null;
                   const hasDiscount = promo !== null && promo > 0 && promo < originalPrice;
@@ -660,7 +695,9 @@ export default function QrMenuPage() {
                     <div
                       key={item.id}
                       className={`bg-white rounded-3xl p-3 sm:p-3.5 shadow-xs border transition-all duration-200 ${
-                        isSelected
+                        isSoldOut
+                          ? "opacity-60 grayscale-[30%] border-stone-200"
+                          : isSelected
                           ? "border-[#2E2018]/40 ring-1 ring-[#2E2018]/10"
                           : "border-stone-200/70 hover:border-stone-300 hover:shadow-sm"
                       }`}
@@ -684,7 +721,15 @@ export default function QrMenuPage() {
                               <Coffee className="w-8 h-8 stroke-[1.5]" />
                             </div>
                           )}
-                          {idx === 0 && (
+                          {/* Lớp phủ khi tạm hết hàng */}
+                          {isSoldOut && (
+                            <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
+                              <span className="text-[10px] font-black tracking-wider text-white bg-stone-900/90 px-2 py-0.5 rounded-md uppercase shadow-xs">
+                                Tạm hết
+                              </span>
+                            </div>
+                          )}
+                          {idx === 0 && !isSoldOut && (
                             <span className="absolute top-1.5 left-1.5 text-[8px] font-black text-white bg-[#D95D39] px-2 py-0.5 rounded-md shadow-xs">
                               BEST
                             </span>
@@ -703,7 +748,7 @@ export default function QrMenuPage() {
                               <h3 className="text-xs sm:text-sm font-extrabold text-stone-900 line-clamp-1 leading-snug">
                                 {item.name}
                               </h3>
-                              {idx === 1 && (
+                              {idx === 1 && !isSoldOut && (
                                 <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0 border border-emerald-200/50">
                                   Mới
                                 </span>
@@ -734,7 +779,15 @@ export default function QrMenuPage() {
                               )}
                             </div>
 
-                            {isSelected ? (
+                            {isSoldOut ? (
+                              <button
+                                type="button"
+                                disabled
+                                className="flex items-center gap-1 px-3 py-1.5 bg-stone-100 text-stone-400 rounded-xl text-xs font-bold cursor-not-allowed select-none border border-stone-200"
+                              >
+                                <span>Tạm hết</span>
+                              </button>
+                            ) : isSelected ? (
                               <div className="flex items-center gap-1.5 bg-[#F6F3EF] rounded-2xl p-1 shadow-xs border border-stone-200/50">
                                 <button
                                   type="button"
