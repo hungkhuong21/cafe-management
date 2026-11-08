@@ -7,10 +7,15 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Tăng giới hạn payload body lên 15MB để lưu được ảnh Base64 trực tiếp vào CSDL
+  app.use(json({ limit: '25mb' }));
+  app.use(urlencoded({ extended: true, limit: '25mb' }));
 
   // Tiền tố /api cho tất cả endpoints
   app.setGlobalPrefix('api');
