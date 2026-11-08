@@ -17,7 +17,7 @@ export default function EditTableModal({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (table) {
+    if (isOpen && table) {
       setName(table.name || `Bàn ${String(table.number || "").padStart(2, "0")}`);
       // Tìm zoneId
       const currentZoneName = table.zone_name || table.zone;
@@ -25,15 +25,20 @@ export default function EditTableModal({
         (z) => (typeof z === "object" ? z.name : z) === currentZoneName
       );
       if (matchedZone) {
-        setZoneId(typeof matchedZone === "object" ? matchedZone.id : 1);
+        setZoneId(typeof matchedZone === "object" ? String(matchedZone.id) : String(matchedZone));
+      } else if (table.zone_id) {
+        setZoneId(String(table.zone_id));
+      } else if (zones.length > 0) {
+        const firstZ = zones[0];
+        setZoneId(typeof firstZ === "object" ? String(firstZ.id) : String(firstZ));
       } else {
-        setZoneId(table.zone_id || "1");
+        setZoneId("");
       }
       setSeats(String(table.seats || 4));
       setStatus(table.status || "free");
       setError("");
     }
-  }, [table, zones]);
+  }, [isOpen, table?.id]);
 
   if (!isOpen || !table) return null;
 
@@ -43,81 +48,54 @@ export default function EditTableModal({
       setError("Vui lòng nhập tên bàn!");
       return;
     }
-    if (!zoneId) {
-      setError("Vui lòng chọn khu vực!");
-      return;
-    }
-    if (!seats || Number(seats) <= 0) {
-      setError("Vui lòng nhập sức chứa hợp lệ!");
+    const seatNum = parseInt(seats, 10);
+    if (isNaN(seatNum) || seatNum <= 0) {
+      setError("Vui lòng nhập sức chứa (số ghế) hợp lệ lớn hơn 0!");
       return;
     }
 
     setSubmitting(true);
     setError("");
 
-    // Trích xuất số bàn nếu có (ví dụ "Bàn 08" -> 8)
+    // Trích xuất số bàn nếu có (ví dụ "Bàn 08" -> 8), hoặc giữ nguyên số bàn cũ
     const match = name.match(/\d+/);
     const tableNumber = match ? parseInt(match[0], 10) : table.number;
 
     try {
       const payload = {
         name: name.trim(),
-        number: tableNumber,
-        zone_id: Number(zoneId),
-        seats: Number(seats),
+        number: tableNumber || table.number,
+        seats: seatNum,
         status: status,
       };
 
-      await api.put(`/tables/${table.id}`, payload);
+      if (zoneId) {
+        payload.zone_id = Number(zoneId);
+      }
+
+      const res = await api.put(`/tables/${table.id}`, payload);
 
       if (onTableUpdated) {
-        // Cập nhật ngay trên client
-        const selectedZoneObj = zones.find(
-          (z) => (typeof z === "object" ? z.id : z) == zoneId
-        );
-        const zoneName = selectedZoneObj
-          ? typeof selectedZoneObj === "object"
-            ? selectedZoneObj.name
-            : selectedZoneObj
-          : table.zone;
-
-        onTableUpdated({
+        const updatedData = res.data || {
           ...table,
           name: name.trim(),
-          number: tableNumber,
-          zone_id: Number(zoneId),
-          zone: zoneName,
-          zone_name: zoneName,
-          seats: Number(seats),
+          number: tableNumber || table.number,
+          seats: seatNum,
           status: status,
-        });
+          zone_id: zoneId ? Number(zoneId) : table.zone_id,
+        };
+        onTableUpdated(updatedData);
       }
       onClose();
     } catch (err) {
-      // Ngay cả khi API lỗi (ví dụ môi trường mock), vẫn cập nhật state giao diện
-      console.warn("Lỗi API cập nhật bàn:", err);
-      if (onTableUpdated) {
-        const selectedZoneObj = zones.find(
-          (z) => (typeof z === "object" ? z.id : z) == zoneId
-        );
-        const zoneName = selectedZoneObj
-          ? typeof selectedZoneObj === "object"
-            ? selectedZoneObj.name
-            : selectedZoneObj
-          : table.zone;
-
-        onTableUpdated({
-          ...table,
-          name: name.trim(),
-          number: tableNumber,
-          zone_id: Number(zoneId),
-          zone: zoneName,
-          zone_name: zoneName,
-          seats: Number(seats),
-          status: status,
-        });
-      }
-      onClose();
+      console.error("Lỗi cập nhật bàn:", err);
+      const data = err.response?.data;
+      const errorMsg =
+        (typeof data?.error === "object" ? data.error?.message : data?.error) ||
+        data?.message ||
+        err.message ||
+        "Không thể cập nhật bàn. Vui lòng thử lại!";
+      setError(Array.isArray(errorMsg) ? errorMsg[0] : errorMsg);
     } finally {
       setSubmitting(false);
     }

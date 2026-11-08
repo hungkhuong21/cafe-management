@@ -52,11 +52,14 @@ export class TablesService implements OnModuleInit {
         );
       `);
 
-      // 3. Đảm bảo qr_token tồn tại trên bảng cũ
+      // 3. Đảm bảo qr_token và các cột của dining_tables tồn tại trên database cũ
       await this.db.query(`
-        ALTER TABLE dining_tables
-        ADD COLUMN IF NOT EXISTS qr_token VARCHAR(32) NOT NULL UNIQUE
-        DEFAULT substr(md5(random()::text || clock_timestamp()::text), 1, 12);
+        ALTER TABLE dining_tables ADD COLUMN IF NOT EXISTS qr_token VARCHAR(32) NOT NULL UNIQUE
+          DEFAULT substr(md5(random()::text || clock_timestamp()::text), 1, 12);
+        ALTER TABLE dining_tables ADD COLUMN IF NOT EXISTS seats INTEGER NOT NULL DEFAULT 4;
+        ALTER TABLE dining_tables ADD COLUMN IF NOT EXISTS zone_id INTEGER REFERENCES zones(id) ON DELETE SET NULL;
+        ALTER TABLE dining_tables ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'free';
+        ALTER TABLE dining_tables DROP CONSTRAINT IF EXISTS dining_tables_status_check;
       `);
 
       this.logger.log(
@@ -265,17 +268,30 @@ export class TablesService implements OnModuleInit {
     const values: any[] = [];
     let idx = 1;
 
-    if (dto.number !== undefined) {
-      fields.push(`number = $${idx++}`);
-      values.push(Number(dto.number));
+    if (dto.number !== undefined && !isNaN(Number(dto.number))) {
+      // Chỉ cập nhật số bàn nếu không trùng với bàn khác
+      const checkNum = await this.db.query(
+        'SELECT id FROM dining_tables WHERE number = $1 AND id != $2',
+        [Number(dto.number), id],
+      );
+      if (checkNum.rows.length === 0) {
+        fields.push(`number = $${idx++}`);
+        values.push(Number(dto.number));
+      }
     }
-    if (dto.seats !== undefined) {
+    if (dto.seats !== undefined && !isNaN(Number(dto.seats))) {
       fields.push(`seats = $${idx++}`);
-      values.push(Number(dto.seats));
+      values.push(Math.max(1, Number(dto.seats)));
     }
     if (dto.zone_id !== undefined) {
-      fields.push(`zone_id = $${idx++}`);
-      values.push(dto.zone_id ? Number(dto.zone_id) : null);
+      if (dto.zone_id && !isNaN(Number(dto.zone_id))) {
+        const checkZone = await this.db.query('SELECT id FROM zones WHERE id = $1', [Number(dto.zone_id)]);
+        fields.push(`zone_id = $${idx++}`);
+        values.push(checkZone.rows.length > 0 ? Number(dto.zone_id) : null);
+      } else {
+        fields.push(`zone_id = $${idx++}`);
+        values.push(null);
+      }
     }
     if (dto.status !== undefined) {
       fields.push(`status = $${idx++}`);

@@ -171,7 +171,7 @@ export default function TableCard({ table, onShowQr, onEdit, onDelete, onStatusC
 
       <h3 className="mt-3 font-bold text-stone-900">{table.name}</h3>
       <p className="text-xs text-stone-500">
-        {table.zone_name || table.zone} • {table.seats || 4} ghế
+        {table.zone_name || table.zone} • {Number(table.seats) > 0 ? table.seats : 4} ghế
       </p>
 
       <div className="mt-4 flex items-center justify-between">
