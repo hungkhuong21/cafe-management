@@ -44,7 +44,9 @@ async function bootstrap() {
     const match = req.url.match(/^\/(?:api\/)?qr\/([^?#/]+)/);
     if (match) {
       const token = match[1];
-      return res.redirect(302, `${frontendUrl.replace(/\/+$/, '')}/qr/${token}`);
+      const queryIdx = req.url.indexOf('?');
+      const query = queryIdx !== -1 ? req.url.substring(queryIdx) : '';
+      return res.redirect(302, `${frontendUrl.replace(/\/+$/, '')}/qr/${token}${query}`);
     }
     next();
   });

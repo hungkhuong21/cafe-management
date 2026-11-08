@@ -82,17 +82,27 @@ export default function QrMenuPage() {
     fetchStore();
   }, []);
 
-  // Xác định số bàn hoặc tableId từ URL (?table=08 hoặc /qr/08 hoặc /qr/<token>)
-  const initialTableNumber = searchParams.get("table") || paramTableId || "08";
+  // Xác định số bàn ban đầu từ URL:
+  // Nếu có ?table=01 hoặc ?table=1 -> lấy ngay số bàn
+  // Nếu paramTableId là số thuần (/qr/1 hoặc /qr/01) -> lấy ngay số bàn
+  // Nếu paramTableId là mã token QR dài (vd: a1b2c3d4e5f6) -> để rỗng, chờ API tra cứu số bàn thực tế
+  const getInitialTable = () => {
+    const fromParam = searchParams.get("table");
+    if (fromParam && /^\d+$/.test(fromParam.trim())) {
+      return fromParam.trim().padStart(2, "0");
+    }
+    if (paramTableId && /^\d+$/.test(paramTableId.trim())) {
+      return paramTableId.trim().padStart(2, "0");
+    }
+    return "";
+  };
 
   // State màn hình chính: 'menu' (Thực đơn) | 'cart' (Giỏ hàng)
   const [currentScreen, setCurrentScreen] = useState("menu");
 
   // State thông tin bàn
-  const [tableNumber, setTableNumber] = useState(
-    initialTableNumber.length === 1 ? `0${initialTableNumber}` : initialTableNumber
-  );
-  const [currentZone, setCurrentZone] = useState("Lầu 1");
+  const [tableNumber, setTableNumber] = useState(getInitialTable);
+  const [currentZone, setCurrentZone] = useState("Khu vực chính");
   const [currentSeats, setCurrentSeats] = useState(4);
   const [allDbTables, setAllDbTables] = useState([]);
   const [allDbZones, setAllDbZones] = useState([]);
@@ -103,7 +113,7 @@ export default function QrMenuPage() {
   // Modal Chọn / Đổi bàn
   const [showSelectTableModal, setShowSelectTableModal] = useState(false);
   const [selectedZoneTab, setSelectedZoneTab] = useState("Tất cả");
-  const [tempSelectedTable, setTempSelectedTable] = useState("08");
+  const [tempSelectedTable, setTempSelectedTable] = useState("01");
 
   // Modal Xác nhận đổi bàn giữ nguyên giỏ
   const [showConfirmChangeModal, setShowConfirmChangeModal] = useState(false);
@@ -133,6 +143,17 @@ export default function QrMenuPage() {
   useEffect(() => {
     const fetchTableInfo = async () => {
       try {
+        // 1. Nếu paramTableId là mã token QR, tra cứu nhanh qua endpoint token
+        let directTable = null;
+        if (paramTableId && paramTableId.length > 3 && !/^\d+$/.test(paramTableId)) {
+          try {
+            const tokenRes = await api.get(`/tables/token/${paramTableId.trim()}`);
+            if (tokenRes.data) {
+              directTable = tokenRes.data;
+            }
+          } catch (_) {}
+        }
+
         const [tablesRes, zonesRes] = await Promise.all([
           api.get("/tables").catch(() => ({ data: [] })),
           api.get("/zones").catch(() => ({ data: [] })),
@@ -144,14 +165,21 @@ export default function QrMenuPage() {
         const zones = zonesRes.data || [];
         setAllDbZones(zones);
 
-        const found = tables.find(
-          (t) =>
-            String(t.qr_token) === String(paramTableId) ||
-            String(t.id) === String(paramTableId) ||
-            String(t.number) === String(paramTableId) ||
-            `0${t.number}` === String(paramTableId) ||
-            String(t.number) === String(searchParams.get("table"))
-        );
+        const cleanToken = String(paramTableId || "").trim().toLowerCase();
+        const searchTable = searchParams.get("table");
+
+        const found =
+          directTable ||
+          tables.find((t) => {
+            const tToken = String(t.qr_token || "").trim().toLowerCase();
+            const tNum = String(t.number || "").trim();
+            const tId = String(t.id || "").trim();
+            return (
+              (cleanToken && tToken && tToken === cleanToken) ||
+              (cleanToken && (tNum === cleanToken || tNum.padStart(2, "0") === cleanToken || tId === cleanToken)) ||
+              (searchTable && (tNum === searchTable.trim() || tNum.padStart(2, "0") === searchTable.trim()))
+            );
+          });
 
         if (found) {
           // Chỉ cập nhật tableNumber nếu user CHƯA đổi bàn thủ công
@@ -411,9 +439,10 @@ export default function QrMenuPage() {
     setSubmitting(true);
 
     try {
+      const cleanParam = String(paramTableId || "").trim().toLowerCase();
       const currentObj = allDbTables.find(
         (t) =>
-          String(t.qr_token) === String(paramTableId) ||
+          (cleanParam && String(t.qr_token || "").trim().toLowerCase() === cleanParam) ||
           String(t.number) === String(tableNumber) ||
           Number(t.number) === parseInt(tableNumber, 10) ||
           t.id === parseInt(tableNumber, 10)
@@ -425,7 +454,9 @@ export default function QrMenuPage() {
 
       const tableLabel = currentObj
         ? `Bàn ${String(currentObj.number).padStart(2, "0")}`
-        : `Bàn ${tableNumber}`;
+        : !isNaN(parsedNum)
+        ? `Bàn ${String(parsedNum).padStart(2, "0")}`
+        : "Bàn phục vụ";
 
       const payload = {
         table_id: targetTableId,
@@ -556,7 +587,7 @@ export default function QrMenuPage() {
                   Bàn phục vụ
                 </span>
                 <span className="block text-xs font-black text-[#2E2018]">
-                  Bàn {tableNumber}
+                  {tableNumber ? `Bàn ${tableNumber}` : "Bàn phục vụ"}
                 </span>
               </div>
               <button
@@ -935,7 +966,7 @@ export default function QrMenuPage() {
                       Phục vụ tại bàn
                     </span>
                     <span className="block text-xs font-black text-stone-900">
-                      Bàn {tableNumber} • {currentZone}
+                      {tableNumber ? `Bàn ${tableNumber}` : "Bàn phục vụ"} • {currentZone}
                     </span>
                   </div>
                 </div>

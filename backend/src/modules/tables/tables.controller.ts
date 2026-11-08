@@ -34,6 +34,12 @@ export class TablesController {
     return this.tablesService.switchTable(dto);
   }
 
+  // Tra cứu bàn qua mã token QR (dành cho khách quét QR)
+  @Get('token/:token')
+  findByToken(@Param('token') token: string) {
+    return this.tablesService.findTableByToken(token);
+  }
+
   // 2. GET /tables/:id - Chi tiết bàn
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {

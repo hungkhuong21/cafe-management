@@ -237,6 +237,35 @@ export class TablesService implements OnModuleInit {
     return res.rows[0];
   }
 
+  // GET /tables/token/:token - Tra cứu bàn qua mã token QR
+  async findTableByToken(token: string) {
+    const cleanToken = String(token || '').trim();
+    const res = await this.db.query(
+      `SELECT 
+        dt.id,
+        dt.number,
+        CONCAT('Bàn ', LPAD(dt.number::text, 2, '0')) as name,
+        dt.seats,
+        dt.status,
+        dt.zone_id,
+        COALESCE(dt.qr_token, '') as qr_token,
+        CONCAT('/qr/', dt.qr_token) as qr_url,
+        z.name as zone_name 
+       FROM dining_tables dt 
+       LEFT JOIN zones z ON dt.zone_id = z.id 
+       WHERE LOWER(dt.qr_token) = LOWER($1) 
+          OR dt.number::text = $1 
+          OR LPAD(dt.number::text, 2, '0') = $1
+          OR dt.id::text = $1
+       LIMIT 1`,
+      [cleanToken],
+    );
+    if (res.rows.length === 0) {
+      throw new NotFoundException(`Không tìm thấy bàn với mã "${token}"`);
+    }
+    return res.rows[0];
+  }
+
   // POST /tables - Thêm bàn
   async createTable(dto: CreateTableDto) {
     // Tự sinh số bàn tiếp theo nếu không truyền

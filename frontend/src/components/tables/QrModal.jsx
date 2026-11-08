@@ -26,7 +26,9 @@ export default function QrModal({ table, onClose, onTableUpdated }) {
   const [baseUrl] = useState(getFrontendOrigin);
 
   const qrToken = currentTable.qr_token || currentTable.number || currentTable.id;
-  const url = `${baseUrl.replace(/\/+$/, "")}/qr/${qrToken}`;
+  const tableNum = currentTable.number ? String(currentTable.number).padStart(2, "0") : "";
+  const tableParam = tableNum ? `?table=${tableNum}` : "";
+  const url = `${baseUrl.replace(/\/+$/, "")}/qr/${qrToken}${tableParam}`;
 
   const handleDownload = () => {
     const link = document.createElement("a");
