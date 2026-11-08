@@ -25,6 +25,15 @@ export default function MenuItemCard({
   const isOn = item.status === "available";
   const displayImage = getImageUrl(item.image_url || item.image);
 
+  // Tính toán giá khuyến mãi & phần trăm giảm giá
+  const originalPrice = Number(item.price) || 0;
+  const promoPrice = item.promo_price ? Number(item.promo_price) : null;
+  const hasDiscount = promoPrice !== null && promoPrice > 0 && promoPrice < originalPrice;
+  const discountPercent = hasDiscount
+    ? Math.round(((originalPrice - promoPrice) / originalPrice) * 100)
+    : 0;
+  const finalPrice = hasDiscount ? promoPrice : originalPrice;
+
   // Reset imgError khi ảnh thay đổi
   useEffect(() => {
     setImgError(false);
@@ -52,10 +61,20 @@ export default function MenuItemCard({
             onError={() => setImgError(true)}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-108"
           />
+          {hasDiscount && (
+            <span className="absolute top-1.5 left-1.5 rounded-md bg-red-600 px-1.5 py-0.5 text-[9px] font-black text-white shadow-xs">
+              -{discountPercent}%
+            </span>
+          )}
         </div>
       ) : (
-        <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-stone-100/90 border border-stone-200/60 text-3xl select-none text-stone-400 group-hover:scale-105 transition-transform duration-300">
+        <div className="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-stone-100/90 border border-stone-200/60 text-3xl select-none text-stone-400 group-hover:scale-105 transition-transform duration-300">
           {item.emoji || "☕"}
+          {hasDiscount && (
+            <span className="absolute top-1.5 left-1.5 rounded-md bg-red-600 px-1.5 py-0.5 text-[9px] font-black text-white shadow-xs">
+              -{discountPercent}%
+            </span>
+          )}
         </div>
       )}
 
@@ -134,10 +153,22 @@ export default function MenuItemCard({
             {item.name}
           </h3>
 
-          {/* Giá tiền */}
-          <p className="text-sm sm:text-base font-black text-[#E06D44] mt-0.5 tracking-tight">
-            {formatCurrency(item.price)}
-          </p>
+          {/* Giá tiền & Giảm giá */}
+          <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+            <span className="text-sm sm:text-base font-black text-[#E06D44] tracking-tight">
+              {formatCurrency(finalPrice)}
+            </span>
+            {hasDiscount && (
+              <>
+                <span className="text-xs text-stone-400 line-through font-medium">
+                  {formatCurrency(originalPrice)}
+                </span>
+                <span className="rounded-md bg-red-50 border border-red-200/60 px-1.5 py-0.5 text-[10px] font-extrabold text-red-600 leading-none">
+                  -{discountPercent}%
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Chân card: Trạng thái & Công tắc bật/tắt bán */}

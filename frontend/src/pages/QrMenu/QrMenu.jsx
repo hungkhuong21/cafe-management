@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import { getImageUrl } from "../../utils/imageUrl";
+import { formatCurrency } from "../../utils/formatCurrency";
 
 // Danh mục ban đầu
 const DEFAULT_QR_CATEGORIES = [{ id: "all", name: "Tất cả" }];
@@ -223,13 +224,17 @@ export default function QrMenuPage() {
     });
   }, [sourceItems, selectedCategory, searchQuery]);
 
-  // Thao tác giỏ hàng
+  // Thao tác giỏ hàng (áp dụng giá khuyến mãi nếu có)
   const addToCart = (item) => {
+    const originalPrice = Number(item.price) || 0;
+    const promo = item.promo_price ? Number(item.promo_price) : null;
+    const finalPrice = promo !== null && promo > 0 && promo < originalPrice ? promo : originalPrice;
+
     setCart((prev) => {
-      const existing = prev.find((i) => i.id === item.id);
+      const existing = prev.find((i) => String(i.id) === String(item.id));
       if (existing) {
         return prev.map((i) =>
-          i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+          String(i.id) === String(item.id) ? { ...i, quantity: i.quantity + 1 } : i
         );
       }
       return [
@@ -237,7 +242,8 @@ export default function QrMenuPage() {
         {
           id: item.id,
           name: item.name,
-          price: Number(item.price),
+          price: finalPrice,
+          original_price: originalPrice,
           image_url: item.image_url,
           quantity: 1,
           note: "",
@@ -640,8 +646,15 @@ export default function QrMenuPage() {
                 </div>
               ) : (
                 filteredItems.map((item, idx) => {
-                  const inCartItem = cart.find((i) => i.id === item.id);
+                  const inCartItem = cart.find((i) => String(i.id) === String(item.id));
                   const isSelected = !!inCartItem;
+                  const originalPrice = Number(item.price) || 0;
+                  const promo = item.promo_price ? Number(item.promo_price) : null;
+                  const hasDiscount = promo !== null && promo > 0 && promo < originalPrice;
+                  const finalPrice = hasDiscount ? promo : originalPrice;
+                  const discountPercent = hasDiscount
+                    ? Math.round(((originalPrice - promo) / originalPrice) * 100)
+                    : 0;
 
                   return (
                     <div
@@ -676,6 +689,11 @@ export default function QrMenuPage() {
                               BEST
                             </span>
                           )}
+                          {hasDiscount && (
+                            <span className="absolute top-1.5 right-1.5 text-[8px] font-black text-white bg-red-600 px-1.5 py-0.5 rounded-md shadow-xs">
+                              -{discountPercent}%
+                            </span>
+                          )}
                         </div>
 
                         {/* Nội dung chi tiết */}
@@ -698,9 +716,23 @@ export default function QrMenuPage() {
                           </div>
 
                           <div className="mt-2 flex items-center justify-between">
-                            <span className="text-xs sm:text-sm font-black text-[#2E2018]">
-                              {Number(item.price).toLocaleString("vi-VN")}đ
-                            </span>
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs sm:text-sm font-black text-[#2E2018]">
+                                  {formatCurrency(finalPrice)}
+                                </span>
+                                {hasDiscount && (
+                                  <span className="text-[10px] font-bold text-red-600 bg-red-50 border border-red-200/60 px-1.5 py-0.2 rounded-md">
+                                    -{discountPercent}%
+                                  </span>
+                                )}
+                              </div>
+                              {hasDiscount && (
+                                <span className="text-[10px] text-stone-400 line-through">
+                                  {formatCurrency(originalPrice)}
+                                </span>
+                              )}
+                            </div>
 
                             {isSelected ? (
                               <div className="flex items-center gap-1.5 bg-[#F6F3EF] rounded-2xl p-1 shadow-xs border border-stone-200/50">
@@ -793,7 +825,7 @@ export default function QrMenuPage() {
                     <div className="text-right leading-none">
                       <span className="text-[10px] text-stone-400 block font-medium">Tạm tính</span>
                       <span className="text-base font-black text-[#D95D39]">
-                        {totalAmount.toLocaleString("vi-VN")}đ
+                        {formatCurrency(totalAmount)}
                       </span>
                     </div>
                   </div>
@@ -906,7 +938,7 @@ export default function QrMenuPage() {
                           </button>
                         </div>
                         <p className="text-[11px] text-stone-400 mt-0.5">
-                          {Number(item.price).toLocaleString("vi-VN")}đ / phần
+                          {formatCurrency(item.price)} / phần
                         </p>
 
                         <div className="mt-1.5 flex items-center justify-between">
@@ -929,7 +961,7 @@ export default function QrMenuPage() {
                           </div>
 
                           <span className="text-xs sm:text-sm font-black text-stone-900">
-                            {(item.price * item.quantity).toLocaleString("vi-VN")}đ
+                            {formatCurrency(item.price * item.quantity)}
                           </span>
                         </div>
                       </div>
@@ -1010,7 +1042,7 @@ export default function QrMenuPage() {
                     </span>
                   </div>
                   <span className="text-lg font-black text-[#D95D39]">
-                    {totalAmount.toLocaleString("vi-VN")}đ
+                    {formatCurrency(totalAmount)}
                   </span>
                 </div>
 

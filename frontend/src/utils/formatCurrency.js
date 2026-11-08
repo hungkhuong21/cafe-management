@@ -1,6 +1,6 @@
 export function formatCurrency(amount) {
   const num = Number(amount) || 0;
-  return `${num.toLocaleString("vi-VN")}đ`;
+  return `${num.toLocaleString("vi-VN")} đ`;
 }
 
 export function formatMillion(amount) {

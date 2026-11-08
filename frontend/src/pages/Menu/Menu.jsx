@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Search, SlidersHorizontal, ArrowUpDown, Trash2 } from "lucide-react";
+import { Search, SlidersHorizontal, ArrowUpDown, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import CategoryPanel from "../../components/menu/CategoryPanel";
 import MenuItemCard from "../../components/menu/MenuItemCard";
 import SelectButton from "../../components/common/SelectButton";
@@ -139,6 +139,24 @@ export default function Menu() {
     return list;
   }, [items, query, categoryId, statusFilter, sort]);
 
+  // Phân trang
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(9); // Mặc định 9 món/trang (3 cột x 3 hàng)
+
+  // Tự động chuyển về trang 1 khi lọc, tìm kiếm hoặc đổi số lượng hiển thị
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, categoryId, statusFilter, sort, pageSize]);
+
+  const totalItems = visibleItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedItems = useMemo(() => {
+    const start = (validCurrentPage - 1) * pageSize;
+    return visibleItems.slice(start, start + pageSize);
+  }, [visibleItems, validCurrentPage, pageSize]);
+
   // Cập nhật trạng thái món trực tiếp (on/off)
   const handleToggleStatus = async (item) => {
     const newStatus = item.status === "available" ? "soldout" : "available";
@@ -272,24 +290,117 @@ export default function Menu() {
             Không tìm thấy món nào phù hợp với bộ lọc.
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {visibleItems.map((item) => (
-              <MenuItemCard
-                key={item.id}
-                item={{
-                  ...item,
-                  categoryName:
-                    categoryNameById[item.category_id] ||
-                    categoryNameById[item.category] ||
-                    "Chưa phân loại",
-                  inStock: item.status === "available",
-                }}
-                onToggle={() => handleToggleStatus(item)}
-                onEdit={handleEditItem}
-                onDelete={handleDeleteItem}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {paginatedItems.map((item) => (
+                <MenuItemCard
+                  key={item.id}
+                  item={{
+                    ...item,
+                    categoryName:
+                      categoryNameById[item.category_id] ||
+                      categoryNameById[item.category] ||
+                      "Chưa phân loại",
+                    inStock: item.status === "available",
+                  }}
+                  onToggle={() => handleToggleStatus(item)}
+                  onEdit={handleEditItem}
+                  onDelete={handleDeleteItem}
+                />
+              ))}
+            </div>
+
+            {/* Thanh Phân Trang */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white rounded-2xl p-3.5 px-5 shadow-xs border border-stone-200/80 text-xs text-stone-600">
+              {/* Thông tin số lượng hiển thị */}
+              <div className="flex items-center gap-2.5">
+                <span>
+                  Hiển thị{" "}
+                  <span className="font-bold text-stone-900">
+                    {Math.min((validCurrentPage - 1) * pageSize + 1, totalItems)} -{" "}
+                    {Math.min(validCurrentPage * pageSize, totalItems)}
+                  </span>{" "}
+                  trong tổng số{" "}
+                  <span className="font-bold text-stone-900">{totalItems}</span> món
+                </span>
+
+                <span className="text-stone-300">|</span>
+
+                {/* Chọn số món mỗi trang */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-stone-500">Mỗi trang:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="rounded-lg border border-stone-200 bg-stone-50 px-2 py-1 font-bold text-stone-800 focus:border-brand focus:outline-none cursor-pointer"
+                  >
+                    <option value={6}>6</option>
+                    <option value={9}>9</option>
+                    <option value={12}>12</option>
+                    <option value={18}>18</option>
+                    <option value={24}>24</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Các nút chuyển trang */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={validCurrentPage === 1}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    title="Trang trước"
+                  >
+                    <ChevronLeft size={15} />
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, idx) => idx + 1)
+                    .filter((page) => {
+                      return (
+                        page === 1 ||
+                        page === totalPages ||
+                        Math.abs(page - validCurrentPage) <= 1
+                      );
+                    })
+                    .map((page, idx, arr) => {
+                      const prevPage = arr[idx - 1];
+                      const showEllipsis = prevPage && page - prevPage > 1;
+
+                      return (
+                        <div key={page} className="flex items-center">
+                          {showEllipsis && (
+                            <span className="px-1.5 text-stone-400 select-none">...</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setCurrentPage(page)}
+                            className={`flex h-8 min-w-[32px] px-2 items-center justify-center rounded-xl text-xs font-bold transition ${
+                              validCurrentPage === page
+                                ? "bg-brand text-white shadow-xs"
+                                : "border border-stone-200 bg-white text-stone-700 hover:bg-stone-50"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={validCurrentPage === totalPages}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl border border-stone-200 bg-white text-stone-600 hover:bg-stone-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    title="Trang tiếp theo"
+                  >
+                    <ChevronRight size={15} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
 
