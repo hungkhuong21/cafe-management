@@ -302,7 +302,7 @@ export default function MenuItemModal({
               placeholder="Nguyên liệu, hương vị đặc trưng..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full text-xs px-3.5 py-2 rounded-xl border border-stone-200 focus:outline-none focus:border-orange-500 text-stone-800 placeholder-stone-400"
+              className="w-full text-xs px-5 py-3.5 rounded-xl border border-stone-200 focus:outline-none focus:border-orange-500 text-stone-800 placeholder-stone-400"
             />
           </div>
 

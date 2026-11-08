@@ -141,7 +141,7 @@ export default function Menu() {
 
   // Phân trang
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(9); // Mặc định 9 món/trang (3 cột x 3 hàng)
+  const [pageSize, setPageSize] = useState(18); // Mặc định 18 món/trang (3 cột x 18 hàng)
 
   // Tự động chuyển về trang 1 khi lọc, tìm kiếm hoặc đổi số lượng hiển thị
   useEffect(() => {
@@ -376,11 +376,10 @@ export default function Menu() {
                           <button
                             type="button"
                             onClick={() => setCurrentPage(page)}
-                            className={`flex h-8 min-w-[32px] px-2 items-center justify-center rounded-xl text-xs font-bold transition ${
-                              validCurrentPage === page
+                            className={`flex h-8 min-w-[32px] px-2 items-center justify-center rounded-xl text-xs font-bold transition ${validCurrentPage === page
                                 ? "bg-brand text-white shadow-xs"
                                 : "border border-stone-200 bg-white text-stone-700 hover:bg-stone-50"
-                            }`}
+                              }`}
                           >
                             {page}
                           </button>
