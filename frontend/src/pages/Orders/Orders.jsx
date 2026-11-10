@@ -33,16 +33,28 @@ const removeAccents = (str) => {
     .trim();
 };
 
-const normalizeZone = (z) => {
-  if (!z) return "";
+const normalizeZone = (z, tableId) => {
+  if (!z || z === "null" || z === "undefined") {
+    if (!tableId) return "Mang đi";
+    const num = Number(tableId);
+    if (num >= 8) return "Sân vườn";
+    if (num === 1 || num === 2 || num === 5 || num === 6 || num === 7) return "Lầu 1";
+    return "Tầng trệt";
+  }
   const trimmed = String(z).trim();
-  if (trimmed === "Khu vực chính") return "Tại quán";
+  if (trimmed === "Khu vực chính" || trimmed === "Tại quán") {
+    if (!tableId) return "Mang đi";
+    const num = Number(tableId);
+    if (num >= 8) return "Sân vườn";
+    if (num === 1 || num === 2 || num === 5 || num === 6 || num === 7) return "Lầu 1";
+    return "Tầng trệt";
+  }
   return trimmed;
 };
 
 const getOrderZone = (order) => {
   if (!order.tableId || order.zoneName === "Mang đi") return "takeaway";
-  return normalizeZone(order.zoneName) || "takeaway";
+  return normalizeZone(order.zoneName, order.tableId) || "takeaway";
 };
 
 const DEFAULT_ZONES = ["Tầng trệt", "Lầu 1", "Sân vườn"];
@@ -97,16 +109,36 @@ export default function Orders() {
   }, []);
 
   const zoneOptions = useMemo(() => {
-    const list =
-      dbZones.length > 0
-        ? dbZones.map((z) => (typeof z === "object" ? z.name : z))
-        : DEFAULT_ZONES;
+    const zoneSet = new Set();
+
+    // 1. Lấy từ danh sách khu vực CSDL
+    if (dbZones && dbZones.length > 0) {
+      dbZones.forEach((z) => {
+        const name = typeof z === "object" ? z.name : z;
+        if (name && String(name).trim() && !String(name).toLowerCase().includes("khu vuc chinh")) {
+          zoneSet.add(String(name).trim());
+        }
+      });
+    } else {
+      DEFAULT_ZONES.forEach((z) => zoneSet.add(z));
+    }
+
+    // 2. Tự động gom thêm các khu vực đang có trong đơn hàng thực tế
+    orders.forEach((o) => {
+      const z = o.zoneName && String(o.zoneName).trim();
+      if (z && z !== "Mang đi" && z !== "takeaway") {
+        zoneSet.add(z);
+      }
+    });
+
+    const uniqueZones = Array.from(zoneSet);
+
     return [
       { value: "all", label: "Tất cả khu vực" },
-      ...list.map((z) => ({ value: z, label: z })),
+      ...uniqueZones.map((z) => ({ value: z, label: z })),
       { value: "takeaway", label: "Mang đi" },
     ];
-  }, [dbZones]);
+  }, [dbZones, orders]);
 
   usePageHeader({
     title: "Quản lý đơn hàng",
@@ -144,29 +176,32 @@ export default function Orders() {
     try {
       const res = await api.get("/orders");
       const data = res.data || [];
-      const mapped = data.map((o) => ({
-        id: o.id,
-        code: o.code ? o.code.replace("#", "") : `CF-${o.id}`,
-        status: o.status || "new",
-        tableId: o.table_id,
-        tableName: o.table_name || null,
-        zoneName: normalizeZone(o.zone_name),
-        note: o.note || "",
-        createdAt: o.created_at ? new Date(o.created_at).getTime() : Date.now(),
-        doneAt: o.done_at ? new Date(o.done_at).getTime() : undefined,
-        payment:
-          o.payment_method === "cash"
-            ? "Tiền mặt"
-            : o.payment_method === "transfer"
-            ? "Chuyển khoản"
-            : "Chưa thanh toán",
-        items: (o.items || []).map((i) => ({
-          name: i.name,
-          qty: i.quantity || 1,
-          price: Number(i.unit_price || 0),
-          note: i.note || "",
-        })),
-      }));
+      const mapped = data.map((o) => {
+        const tableId = o.table_id || (o.table_name && o.table_name.match(/\d+/) ? Number(o.table_name.match(/\d+/)[0]) : null);
+        return {
+          id: o.id,
+          code: o.code ? o.code.replace("#", "") : `CF-${o.id}`,
+          status: o.status || "new",
+          tableId: tableId,
+          tableName: o.table_name || null,
+          zoneName: normalizeZone(o.zone_name, tableId),
+          note: o.note || "",
+          createdAt: o.created_at ? new Date(o.created_at).getTime() : Date.now(),
+          doneAt: o.done_at ? new Date(o.done_at).getTime() : undefined,
+          payment:
+            o.payment_method === "cash"
+              ? "Tiền mặt"
+              : o.payment_method === "transfer"
+              ? "Chuyển khoản"
+              : "Chưa thanh toán",
+          items: (o.items || []).map((i) => ({
+            name: i.name,
+            qty: i.quantity || 1,
+            price: Number(i.unit_price || 0),
+            note: i.note || "",
+          })),
+        };
+      });
       setOrders(mapped);
     } catch (err) {
       console.warn("Không thể tải đơn hàng từ API:", err);
@@ -193,13 +228,19 @@ export default function Orders() {
     const selectedZoneNorm = removeAccents(zone);
 
     return orders.filter((o) => {
-      // 1. Lọc khu vực
+      // 1. Lọc khu vực từ dropdown
       if (zone !== "all") {
         if (zone === "takeaway") {
           if (o.tableId && o.zoneName !== "Mang đi") return false;
         } else {
-          const currentZone = normalizeZone(o.zoneName);
-          if (removeAccents(currentZone) !== selectedZoneNorm) return false;
+          const currentZone = normalizeZone(o.zoneName, o.tableId);
+          const currentNorm = removeAccents(currentZone);
+          const matchZone =
+            currentNorm === selectedZoneNorm ||
+            (currentNorm && currentNorm.includes(selectedZoneNorm)) ||
+            (selectedZoneNorm && selectedZoneNorm.includes(currentNorm));
+
+          if (!matchZone) return false;
         }
       }
 
@@ -213,24 +254,24 @@ export default function Orders() {
         }
       }
 
-      // 3. Lọc tìm kiếm không dấu (tìm mã đơn, bàn, khu vực, tên món, ghi chú)
+      // 3. Lọc tìm kiếm không dấu (tìm mã đơn, bàn, khu vực, tên món, ghi chú...)
       if (qNorm) {
         const place = removeAccents(getOrderPlace(o));
-        const zName = removeAccents(normalizeZone(o.zoneName));
+        const zName = removeAccents(normalizeZone(o.zoneName, o.tableId));
         const code = removeAccents(String(o.code || o.id));
         const id = String(o.id);
-        const matchItem = (o.items || []).some((item) =>
-          removeAccents(item.name).includes(qNorm)
-        );
-        const matchNote = removeAccents(o.note).includes(qNorm);
+        const matchNote = removeAccents(o.note);
+        const itemsStr = (o.items || [])
+          .map((item) => `${removeAccents(item.name)} ${removeAccents(item.note)}`)
+          .join(" ");
 
+        // Chuỗi tìm kiếm tổng hợp: hỗ trợ gõ "khu vực lầu 1", "khu lầu 1", "bàn 01 lầu 1", "sân vườn", "tầng trệt"...
+        const combined = `${id} ${code} ${place} ban ${o.tableId || ""} ${zName} khu vuc ${zName} khu ${zName} ${place} ${zName} ${matchNote} ${itemsStr}`;
+
+        const searchWords = qNorm.split(/\s+/).filter(Boolean);
         const match =
-          id.includes(qNorm) ||
-          code.includes(qNorm) ||
-          place.includes(qNorm) ||
-          zName.includes(qNorm) ||
-          matchItem ||
-          matchNote;
+          combined.includes(qNorm) ||
+          (searchWords.length > 0 && searchWords.every((word) => combined.includes(word)));
 
         if (!match) return false;
       }
@@ -449,11 +490,21 @@ export default function Orders() {
             />
             <input
               type="text"
-              placeholder="Tìm đơn"
+              placeholder="Tìm đơn, bàn, khu vực..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-36 sm:w-44 rounded-2xl border border-stone-200/90 bg-white py-2 pl-9 pr-3 text-xs font-medium text-stone-800 placeholder-stone-400 focus:border-brand focus:outline-none transition shadow-2xs"
+              className="w-44 sm:w-60 rounded-2xl border border-stone-200/90 bg-white py-2 pl-9 pr-7 text-xs font-medium text-stone-800 placeholder-stone-400 focus:border-[#E06D44] focus:outline-none transition shadow-2xs"
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 text-xs font-bold p-0.5"
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
           </div>
 
           {/* Tổng đơn hiển thị */}

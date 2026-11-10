@@ -31,7 +31,17 @@ export class OrdersService implements OnModuleInit {
         o.code,
         o.table_id,
         CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE CONCAT('Bàn ', LPAD(dt.number::text, 2, '0')) END as table_name,
-        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE COALESCE(z.name, 'Tầng trệt') END as zone_name,
+        CASE 
+          WHEN o.table_id IS NULL THEN 'Mang đi' 
+          ELSE COALESCE(
+            z.name, 
+            CASE 
+              WHEN dt.number >= 8 THEN 'Sân vườn' 
+              WHEN dt.number IN (1, 2, 5, 6, 7) THEN 'Lầu 1' 
+              ELSE 'Tầng trệt' 
+            END
+          ) 
+        END as zone_name,
         o.status,
         o.note,
         o.payment_method,
@@ -51,7 +61,10 @@ export class OrdersService implements OnModuleInit {
           ) FILTER (WHERE oi.id IS NOT NULL), '[]'
         ) as items
       FROM orders o
-      LEFT JOIN dining_tables dt ON (o.table_id = dt.id OR o.table_id = dt.number)
+      LEFT JOIN dining_tables dt ON (
+        dt.id = o.table_id 
+        OR (dt.number = o.table_id AND NOT EXISTS (SELECT 1 FROM dining_tables d2 WHERE d2.id = o.table_id))
+      )
       LEFT JOIN zones z ON dt.zone_id = z.id
       LEFT JOIN order_items oi ON o.id = oi.order_id
       GROUP BY o.id, dt.number, z.name
@@ -68,7 +81,17 @@ export class OrdersService implements OnModuleInit {
         o.code,
         o.table_id,
         CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE CONCAT('Bàn ', LPAD(dt.number::text, 2, '0')) END as table_name,
-        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE COALESCE(z.name, 'Tầng trệt') END as zone_name,
+        CASE 
+          WHEN o.table_id IS NULL THEN 'Mang đi' 
+          ELSE COALESCE(
+            z.name, 
+            CASE 
+              WHEN dt.number >= 8 THEN 'Sân vườn' 
+              WHEN dt.number IN (1, 2, 5, 6, 7) THEN 'Lầu 1' 
+              ELSE 'Tầng trệt' 
+            END
+          ) 
+        END as zone_name,
         o.status,
         o.note,
         o.payment_method,
@@ -88,7 +111,10 @@ export class OrdersService implements OnModuleInit {
           ) FILTER (WHERE oi.id IS NOT NULL), '[]'
         ) as items
       FROM orders o
-      LEFT JOIN dining_tables dt ON (o.table_id = dt.id OR o.table_id = dt.number)
+      LEFT JOIN dining_tables dt ON (
+        dt.id = o.table_id 
+        OR (dt.number = o.table_id AND NOT EXISTS (SELECT 1 FROM dining_tables d2 WHERE d2.id = o.table_id))
+      )
       LEFT JOIN zones z ON dt.zone_id = z.id
       LEFT JOIN order_items oi ON o.id = oi.order_id
       WHERE o.id = $1

@@ -104,6 +104,17 @@ export class TablesService implements OnModuleInit {
           ELSE 1 
         END 
         WHERE zone_id IS NULL OR zone_id NOT IN (SELECT id FROM zones);
+
+        -- Loại bỏ hoàn toàn khu vực cũ 'Khu vực chính' nếu còn sót trong DB và dọn dẹp liên kết
+        UPDATE dining_tables 
+        SET zone_id = CASE 
+          WHEN number >= 8 THEN 3 
+          WHEN number IN (1, 2, 5, 6, 7) THEN 2 
+          ELSE 1 
+        END 
+        WHERE zone_id IN (SELECT id FROM zones WHERE name ILIKE '%khu vực chính%' OR name ILIKE '%tai quan%');
+
+        DELETE FROM zones WHERE name ILIKE '%khu vực chính%' OR name ILIKE '%tai quan%';
       `).catch(() => {});
 
       this.logger.log(
