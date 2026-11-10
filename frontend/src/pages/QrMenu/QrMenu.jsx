@@ -17,6 +17,7 @@ import {
   Pencil,
   Trash2,
   Sparkles,
+  Flame,
 } from "lucide-react";
 import api from "../../services/api";
 import { getImageUrl } from "../../utils/imageUrl";
@@ -102,7 +103,7 @@ export default function QrMenuPage() {
 
   // State thông tin bàn
   const [tableNumber, setTableNumber] = useState(getInitialTable);
-  const [currentZone, setCurrentZone] = useState("Khu vực chính");
+  const [currentZone, setCurrentZone] = useState("Tầng trệt");
   const [currentSeats, setCurrentSeats] = useState(4);
   const [allDbTables, setAllDbTables] = useState([]);
   const [allDbZones, setAllDbZones] = useState([]);
@@ -246,6 +247,11 @@ export default function QrMenuPage() {
   }, []);
 
   const sourceItems = menuItems;
+
+  // Xác định số lượng gọi món cao nhất để gắn nhãn Best Seller cho món được gọi nhiều nhất
+  const maxSoldQuantity = useMemo(() => {
+    return Math.max(0, ...menuItems.map((m) => Number(m.total_sold || 0)));
+  }, [menuItems]);
 
   // Lọc món theo danh mục & tìm kiếm (Tự động ẩn món 'hidden' hoặc show_on_qr = false)
   const filteredItems = useMemo(() => {
@@ -400,7 +406,7 @@ export default function QrMenuPage() {
     if (cart.length > 0) {
       setTargetTable({
         number: tempSelectedTable,
-        zone: selectedObj?.zone_name || selectedZoneTab || "Khu vực chính",
+        zone: selectedObj?.zone_name || selectedZoneTab || "Tầng trệt",
         seats: selectedObj?.seats || 4,
         status: "Trống • Có thể chọn",
       });
@@ -440,13 +446,18 @@ export default function QrMenuPage() {
 
     try {
       const cleanParam = String(paramTableId || "").trim().toLowerCase();
-      const currentObj = allDbTables.find(
-        (t) =>
-          (cleanParam && String(t.qr_token || "").trim().toLowerCase() === cleanParam) ||
-          String(t.number) === String(tableNumber) ||
-          Number(t.number) === parseInt(tableNumber, 10) ||
-          t.id === parseInt(tableNumber, 10)
-      );
+      // Ưu tiên tìm theo tableNumber hiện tại (đặc biệt khi khách đã đổi bàn)
+      const currentObj =
+        allDbTables.find(
+          (t) =>
+            String(t.number) === String(tableNumber) ||
+            Number(t.number) === parseInt(tableNumber, 10) ||
+            String(t.number).padStart(2, "0") === String(tableNumber).padStart(2, "0")
+        ) ||
+        allDbTables.find(
+          (t) =>
+            cleanParam && String(t.qr_token || "").trim().toLowerCase() === cleanParam
+        );
       const parsedNum = parseInt(tableNumber, 10);
       const targetTableId = currentObj
         ? currentObj.id
@@ -470,6 +481,9 @@ export default function QrMenuPage() {
       };
 
       const res = await api.post("/orders", payload);
+
+      // Cập nhật lại danh mục và menu ngay lập tức để đồng bộ số lượng bán & Best Seller mới
+      fetchMenuData();
 
       // Cập nhật trạng thái bàn hiện tại thành 'occupied' (đang dùng)
       if (currentObj?.id) {
@@ -722,6 +736,11 @@ export default function QrMenuPage() {
                     ? Math.round(((originalPrice - promo) / originalPrice) * 100)
                     : 0;
 
+                  // Xác định món Best Seller dựa vào số lượng được gọi nhiều nhất từ dữ liệu đơn hàng thực tế
+                  const isBestSeller =
+                    Boolean(item.is_best_seller) ||
+                    (maxSoldQuantity > 0 && Number(item.total_sold || 0) === maxSoldQuantity);
+
                   return (
                     <div
                       key={item.id}
@@ -760,9 +779,11 @@ export default function QrMenuPage() {
                               </span>
                             </div>
                           )}
-                          {idx === 0 && !isSoldOut && (
-                            <span className="absolute top-1.5 left-1.5 text-[8px] font-black text-white bg-[#D95D39] px-2 py-0.5 rounded-md shadow-xs">
-                              BEST
+                          {/* Nhãn Best Seller dựa vào món được gọi nhiều nhất */}
+                          {isBestSeller && !isSoldOut && (
+                            <span className="absolute top-1.5 left-1.5 flex items-center gap-1 text-[8px] sm:text-[8.5px] font-black tracking-wide text-white bg-gradient-to-r from-amber-500 via-orange-500 to-[#D95D39] px-2 py-0.5 rounded-lg shadow-sm border border-amber-300/40 uppercase">
+                              <Flame className="w-2.5 h-2.5 fill-amber-200 text-amber-200" />
+                              Best Seller
                             </span>
                           )}
                           {hasDiscount && (
@@ -779,9 +800,10 @@ export default function QrMenuPage() {
                               <h3 className="text-xs sm:text-sm font-extrabold text-stone-900 line-clamp-1 leading-snug">
                                 {item.name}
                               </h3>
-                              {idx === 1 && !isSoldOut && (
-                                <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0 border border-emerald-200/50">
-                                  Mới
+                              {isBestSeller && !isSoldOut && (
+                                <span className="text-[9px] font-bold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full shrink-0 border border-orange-200/60 flex items-center gap-0.5 shadow-2xs">
+                                  <Flame className="w-2.5 h-2.5 text-orange-500 fill-orange-500" />
+                                  Bán chạy nhất
                                 </span>
                               )}
                             </div>

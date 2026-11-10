@@ -21,16 +21,31 @@ const getOrderPlace = (order) => {
   return `Bàn ${String(order.tableId).padStart(2, "0")}`;
 };
 
-const getOrderZone = (order) =>
-  order.tableId ? order.zoneName || "Tại quán" : "takeaway";
+// Chuẩn hóa chuỗi tìm kiếm không dấu
+const removeAccents = (str) => {
+  if (!str) return "";
+  return String(str)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .toLowerCase()
+    .trim();
+};
 
-const ZONES = ["Tầng trệt", "Lầu 1", "Sân vườn"];
+const normalizeZone = (z) => {
+  if (!z) return "";
+  const trimmed = String(z).trim();
+  if (trimmed === "Khu vực chính") return "Tại quán";
+  return trimmed;
+};
 
-const ZONE_OPTIONS = [
-  { value: "all", label: "Tất cả khu vực" },
-  ...ZONES.map((z) => ({ value: z, label: z })),
-  { value: "takeaway", label: "Mang đi" },
-];
+const getOrderZone = (order) => {
+  if (!order.tableId || order.zoneName === "Mang đi") return "takeaway";
+  return normalizeZone(order.zoneName) || "takeaway";
+};
+
+const DEFAULT_ZONES = ["Tầng trệt", "Lầu 1", "Sân vườn"];
 
 // Helper: trả về chuỗi "YYYY-MM-DD" theo giờ địa phương
 const toLocalDateStr = (date) => {
@@ -62,12 +77,36 @@ const QUICK_DATES = [
 
 export default function Orders() {
   const [orders, setOrders] = useState([]);
+  const [dbZones, setDbZones] = useState([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now);
   const [zone, setZone] = useState("all");
   const [query, setQuery] = useState("");
   const [soundOn, setSoundOn] = useState(isOrderSoundEnabled);
   const [isQuickOrderOpen, setIsQuickOrderOpen] = useState(false);
+
+  // Tải danh sách khu vực thực tế từ CSDL
+  useEffect(() => {
+    api.get("/zones")
+      .then((res) => {
+        if (res.data && Array.isArray(res.data)) {
+          setDbZones(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const zoneOptions = useMemo(() => {
+    const list =
+      dbZones.length > 0
+        ? dbZones.map((z) => (typeof z === "object" ? z.name : z))
+        : DEFAULT_ZONES;
+    return [
+      { value: "all", label: "Tất cả khu vực" },
+      ...list.map((z) => ({ value: z, label: z })),
+      { value: "takeaway", label: "Mang đi" },
+    ];
+  }, [dbZones]);
 
   usePageHeader({
     title: "Quản lý đơn hàng",
@@ -111,6 +150,7 @@ export default function Orders() {
         status: o.status || "new",
         tableId: o.table_id,
         tableName: o.table_name || null,
+        zoneName: normalizeZone(o.zone_name),
         note: o.note || "",
         createdAt: o.created_at ? new Date(o.created_at).getTime() : Date.now(),
         doneAt: o.done_at ? new Date(o.done_at).getTime() : undefined,
@@ -149,13 +189,22 @@ export default function Orders() {
   }, [fetchOrders]);
 
   const visibleOrders = useMemo(() => {
-    const q = query.trim().toLowerCase().replace("#", "");
+    const qNorm = removeAccents(query.replace("#", ""));
+    const selectedZoneNorm = removeAccents(zone);
+
     return orders.filter((o) => {
-      // Lọc khu vực
-      if (zone !== "all" && getOrderZone(o) !== zone) return false;
-      // Lọc theo ngày (so sánh phần date của createdAt)
+      // 1. Lọc khu vực
+      if (zone !== "all") {
+        if (zone === "takeaway") {
+          if (o.tableId && o.zoneName !== "Mang đi") return false;
+        } else {
+          const currentZone = normalizeZone(o.zoneName);
+          if (removeAccents(currentZone) !== selectedZoneNorm) return false;
+        }
+      }
+
+      // 2. Lọc theo ngày (so sánh phần date của createdAt)
       if (dateFilter) {
-        // Nếu quickMode là "7 ngày": lọc từ dateFilter đến hôm nay
         if (quickMode === "7 ngày") {
           const oDate = toLocalDateStr(o.createdAt);
           if (oDate < dateFilter || oDate > todayStr()) return false;
@@ -163,14 +212,28 @@ export default function Orders() {
           if (toLocalDateStr(o.createdAt) !== dateFilter) return false;
         }
       }
-      // Lọc tìm kiếm
-      if (
-        q &&
-        !String(o.id).includes(q) &&
-        !getOrderPlace(o).toLowerCase().includes(q) &&
-        !(o.items || []).some((item) => item.name.toLowerCase().includes(q))
-      )
-        return false;
+
+      // 3. Lọc tìm kiếm không dấu (tìm mã đơn, bàn, khu vực, tên món, ghi chú)
+      if (qNorm) {
+        const place = removeAccents(getOrderPlace(o));
+        const zName = removeAccents(normalizeZone(o.zoneName));
+        const code = removeAccents(String(o.code || o.id));
+        const id = String(o.id);
+        const matchItem = (o.items || []).some((item) =>
+          removeAccents(item.name).includes(qNorm)
+        );
+        const matchNote = removeAccents(o.note).includes(qNorm);
+
+        const match =
+          id.includes(qNorm) ||
+          code.includes(qNorm) ||
+          place.includes(qNorm) ||
+          zName.includes(qNorm) ||
+          matchItem ||
+          matchNote;
+
+        if (!match) return false;
+      }
       return true;
     });
   }, [orders, zone, query, dateFilter, quickMode]);
@@ -357,23 +420,25 @@ export default function Orders() {
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Nút dropdown Tất cả khu vực bo tròn pill */}
           <div className="relative">
-            <label className="flex cursor-pointer items-center gap-2 rounded-2xl border border-stone-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50 transition shadow-2xs">
-              <MapPin size={15} className="text-stone-500" />
+            <div className="flex items-center gap-2 rounded-2xl border border-stone-200/90 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 shadow-2xs hover:bg-stone-50 transition pointer-events-none">
+              <MapPin size={15} className="text-stone-500 shrink-0" />
               <span>
-                {ZONE_OPTIONS.find((z) => z.value === zone)?.label || "Tất cả khu vực"}
+                {zoneOptions.find((z) => z.value === zone)?.label || "Tất cả khu vực"}
               </span>
-              <select
-                value={zone}
-                onChange={(e) => setZone(e.target.value)}
-                className="absolute inset-0 cursor-pointer opacity-0"
-              >
-                {ZONE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <span className="text-[10px] text-stone-400">▼</span>
+            </div>
+            <select
+              value={zone}
+              onChange={(e) => setZone(e.target.value)}
+              className="absolute inset-0 w-full h-full cursor-pointer opacity-0 z-10"
+              title="Chọn khu vực lọc đơn"
+            >
+              {zoneOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Ô Tìm đơn bo tròn pill */}

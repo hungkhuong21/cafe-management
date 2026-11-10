@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Flame } from "lucide-react";
 import Switch from "../common/Switch";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { getImageUrl } from "../../utils/imageUrl";
@@ -66,6 +66,12 @@ export default function MenuItemCard({
               -{discountPercent}%
             </span>
           )}
+          {item.is_best_seller && (
+            <span className="absolute top-1.5 right-1.5 rounded-md bg-gradient-to-r from-amber-500 to-[#D95D39] px-1.5 py-0.5 text-[8.5px] font-black text-white shadow-xs flex items-center gap-0.5">
+              <Flame size={9} className="fill-amber-200 text-amber-200" />
+              HOT
+            </span>
+          )}
         </div>
       ) : (
         <div className="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl bg-stone-100/90 border border-stone-200/60 text-3xl select-none text-stone-400 group-hover:scale-105 transition-transform duration-300">
@@ -73,6 +79,12 @@ export default function MenuItemCard({
           {hasDiscount && (
             <span className="absolute top-1.5 left-1.5 rounded-md bg-red-600 px-1.5 py-0.5 text-[9px] font-black text-white shadow-xs">
               -{discountPercent}%
+            </span>
+          )}
+          {item.is_best_seller && (
+            <span className="absolute top-1.5 right-1.5 rounded-md bg-gradient-to-r from-amber-500 to-[#D95D39] px-1.5 py-0.5 text-[8.5px] font-black text-white shadow-xs flex items-center gap-0.5">
+              <Flame size={9} className="fill-amber-200 text-amber-200" />
+              HOT
             </span>
           )}
         </div>
@@ -83,9 +95,17 @@ export default function MenuItemCard({
         <div>
           {/* Hàng 1: Badge danh mục & Cụm nút thao tác */}
           <div className="flex items-center justify-between gap-1">
-            <span className="inline-block max-w-[130px] truncate rounded-lg bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-700 border border-orange-200/50">
-              {categoryName || item.categoryName || "Thực đơn"}
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className="inline-block max-w-[120px] truncate rounded-lg bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-700 border border-orange-200/50">
+                {categoryName || item.categoryName || "Thực đơn"}
+              </span>
+              {item.is_best_seller && (
+                <span className="inline-flex items-center gap-0.5 rounded-lg bg-amber-50 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-700 border border-amber-200/60 shadow-2xs">
+                  <Flame size={10} className="text-amber-500 fill-amber-500" />
+                  Best Seller
+                </span>
+              )}
+            </div>
 
             <div className="flex items-center gap-1" ref={menuRef}>
               {/* Nút sửa nhanh 1-click */}

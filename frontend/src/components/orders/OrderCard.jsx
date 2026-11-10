@@ -64,9 +64,16 @@ export default function OrderCard({
             {isDone ? formatTime(new Date(order.doneAt)) : timeAgo(order.createdAt, now)}
           </p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${column.pill}`}>
-          {getOrderPlace(order)}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${column.pill}`}>
+            {getOrderPlace(order)}
+          </span>
+          {order.zoneName && order.tableId && (
+            <span className="text-[10px] font-semibold text-stone-500 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200/50">
+              {order.zoneName}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="mt-3 space-y-1 text-xs text-stone-600 pl-1">

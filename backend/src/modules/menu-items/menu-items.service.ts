@@ -54,35 +54,92 @@ export class MenuItemsService implements OnModuleInit {
   }
 
   async findAll(onlyAvailable = false) {
-    const query = onlyAvailable
-      ? `SELECT m.*, 
-                (m.status = 'available') as is_available,
-                c.name as category_name 
-         FROM menu_items m 
-         LEFT JOIN categories c ON m.category_id = c.id 
-         WHERE m.status = 'available' 
-         ORDER BY m.id DESC`
-      : `SELECT m.*, 
-                (m.status = 'available') as is_available,
-                c.name as category_name 
-         FROM menu_items m 
-         LEFT JOIN categories c ON m.category_id = c.id 
-         ORDER BY m.id DESC`;
-    const res = await this.db.query(query);
-    return res.rows;
+    try {
+      const query = `
+        SELECT m.*, 
+               (m.status = 'available') as is_available,
+               c.name as category_name,
+               COALESCE(sales.total_sold, 0)::int as total_sold,
+               COALESCE(sales.order_count, 0)::int as order_count
+        FROM menu_items m 
+        LEFT JOIN categories c ON m.category_id = c.id 
+        LEFT JOIN (
+          SELECT 
+            COALESCE(oi.menu_item_id, (SELECT id FROM menu_items WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.name)) LIMIT 1)) as target_item_id,
+            SUM(oi.quantity)::int as total_sold,
+            COUNT(DISTINCT oi.order_id)::int as order_count
+          FROM order_items oi
+          JOIN orders o ON oi.order_id = o.id
+          WHERE o.status != 'cancelled'
+          GROUP BY target_item_id
+        ) sales ON sales.target_item_id = m.id
+        ${onlyAvailable ? "WHERE m.status = 'available'" : ""}
+        ORDER BY m.id DESC
+      `;
+      const res = await this.db.query(query);
+      const rows = res.rows || [];
+      const maxSold = Math.max(0, ...rows.map((r: any) => Number(r.total_sold || 0)));
+
+      return rows.map((item: any) => ({
+        ...item,
+        total_sold: Number(item.total_sold || 0),
+        order_count: Number(item.order_count || 0),
+        is_best_seller: maxSold > 0 && Number(item.total_sold || 0) === maxSold,
+      }));
+    } catch (err) {
+      this.logger.warn('Lỗi query sales menu-items, dùng fallback query:', err);
+      const fallbackQuery = onlyAvailable
+        ? `SELECT m.*, (m.status = 'available') as is_available, c.name as category_name 
+           FROM menu_items m LEFT JOIN categories c ON m.category_id = c.id WHERE m.status = 'available' ORDER BY m.id DESC`
+        : `SELECT m.*, (m.status = 'available') as is_available, c.name as category_name 
+           FROM menu_items m LEFT JOIN categories c ON m.category_id = c.id ORDER BY m.id DESC`;
+      const res = await this.db.query(fallbackQuery);
+      return res.rows;
+    }
   }
 
   async findOne(id: number) {
-    const res = await this.db.query(
-      `SELECT m.*, 
-              (m.status = 'available') as is_available,
-              c.name as category_name 
-       FROM menu_items m 
-       LEFT JOIN categories c ON m.category_id = c.id 
-       WHERE m.id = $1`,
-      [id],
-    );
-    return res.rows[0];
+    try {
+      const res = await this.db.query(
+        `SELECT m.*, 
+                (m.status = 'available') as is_available,
+                c.name as category_name,
+                COALESCE(sales.total_sold, 0)::int as total_sold,
+                COALESCE(sales.order_count, 0)::int as order_count
+         FROM menu_items m 
+         LEFT JOIN categories c ON m.category_id = c.id 
+         LEFT JOIN (
+           SELECT 
+             COALESCE(oi.menu_item_id, (SELECT id FROM menu_items WHERE LOWER(TRIM(name)) = LOWER(TRIM(oi.name)) LIMIT 1)) as target_item_id,
+             SUM(oi.quantity)::int as total_sold,
+             COUNT(DISTINCT oi.order_id)::int as order_count
+           FROM order_items oi
+           JOIN orders o ON oi.order_id = o.id
+           WHERE o.status != 'cancelled'
+           GROUP BY target_item_id
+         ) sales ON sales.target_item_id = m.id
+         WHERE m.id = $1`,
+        [id],
+      );
+      if (res.rows.length === 0) return null;
+      const item = res.rows[0];
+      return {
+        ...item,
+        total_sold: Number(item.total_sold || 0),
+        order_count: Number(item.order_count || 0),
+      };
+    } catch (_) {
+      const res = await this.db.query(
+        `SELECT m.*, 
+                (m.status = 'available') as is_available,
+                c.name as category_name 
+         FROM menu_items m 
+         LEFT JOIN categories c ON m.category_id = c.id 
+         WHERE m.id = $1`,
+        [id],
+      );
+      return res.rows[0];
+    }
   }
 
   async create(dto: CreateMenuItemDto) {

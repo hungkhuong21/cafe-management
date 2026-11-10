@@ -17,6 +17,7 @@ export class OrdersService implements OnModuleInit {
         ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(12,0) DEFAULT 0;
         ALTER TABLE order_items ADD COLUMN IF NOT EXISTS note TEXT;
       `);
+
       this.logger.log('Đã kiểm tra và đảm bảo cấu trúc bảng orders / order_items sẵn sàng');
     } catch (err) {
       this.logger.warn('Ghi chú kiểm tra cấu trúc orders:', err);
@@ -29,7 +30,8 @@ export class OrdersService implements OnModuleInit {
         o.id,
         o.code,
         o.table_id,
-        CONCAT('Bàn ', LPAD(dt.number::text, 2, '0')) as table_name,
+        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE CONCAT('Bàn ', LPAD(dt.number::text, 2, '0')) END as table_name,
+        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE COALESCE(z.name, 'Tầng trệt') END as zone_name,
         o.status,
         o.note,
         o.payment_method,
@@ -49,9 +51,10 @@ export class OrdersService implements OnModuleInit {
           ) FILTER (WHERE oi.id IS NOT NULL), '[]'
         ) as items
       FROM orders o
-      LEFT JOIN dining_tables dt ON o.table_id = dt.id
+      LEFT JOIN dining_tables dt ON (o.table_id = dt.id OR o.table_id = dt.number)
+      LEFT JOIN zones z ON dt.zone_id = z.id
       LEFT JOIN order_items oi ON o.id = oi.order_id
-      GROUP BY o.id, dt.number
+      GROUP BY o.id, dt.number, z.name
       ORDER BY o.id DESC
     `);
     return res.rows;
@@ -64,7 +67,8 @@ export class OrdersService implements OnModuleInit {
         o.id,
         o.code,
         o.table_id,
-        CONCAT('Bàn ', LPAD(dt.number::text, 2, '0')) as table_name,
+        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE CONCAT('Bàn ', LPAD(dt.number::text, 2, '0')) END as table_name,
+        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE COALESCE(z.name, 'Tầng trệt') END as zone_name,
         o.status,
         o.note,
         o.payment_method,
@@ -84,10 +88,11 @@ export class OrdersService implements OnModuleInit {
           ) FILTER (WHERE oi.id IS NOT NULL), '[]'
         ) as items
       FROM orders o
-      LEFT JOIN dining_tables dt ON o.table_id = dt.id
+      LEFT JOIN dining_tables dt ON (o.table_id = dt.id OR o.table_id = dt.number)
+      LEFT JOIN zones z ON dt.zone_id = z.id
       LEFT JOIN order_items oi ON o.id = oi.order_id
       WHERE o.id = $1
-      GROUP BY o.id, dt.number
+      GROUP BY o.id, dt.number, z.name
       `,
       [id],
     );

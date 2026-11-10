@@ -62,8 +62,52 @@ export class TablesService implements OnModuleInit {
         ALTER TABLE dining_tables DROP CONSTRAINT IF EXISTS dining_tables_status_check;
       `);
 
+      // 4. Đảm bảo có dữ liệu 3 khu vực chuẩn
+      await this.db.query(`
+        INSERT INTO zones (id, name, sort_order) VALUES
+          (1, 'Tầng trệt', 1),
+          (2, 'Lầu 1', 2),
+          (3, 'Sân vườn', 3)
+        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order;
+        
+        -- Cập nhật sequence của bảng zones
+        SELECT setval(pg_get_serial_sequence('zones', 'id'), COALESCE((SELECT MAX(id) FROM zones), 3));
+      `).catch(() => {});
+
+      // 5. Cập nhật phân bổ khu vực chuẩn cho các bàn (Bàn 12 & bàn >= 8 thuộc Sân vườn)
+      await this.db.query(`
+        -- Bàn 12 và các bàn từ 8 trở đi: Sân vườn (zone_id = 3)
+        UPDATE dining_tables 
+        SET zone_id = 3 
+        WHERE number >= 8;
+
+        -- Bàn 5, 6, 7: Lầu 1 (zone_id = 2)
+        UPDATE dining_tables 
+        SET zone_id = 2 
+        WHERE number IN (5, 6, 7);
+
+        -- Bàn 1, 2: Lầu 1 (theo yêu cầu đổi sang Lầu 1)
+        UPDATE dining_tables 
+        SET zone_id = 2 
+        WHERE number IN (1, 2);
+
+        -- Bàn 3, 4: Tầng trệt (zone_id = 1)
+        UPDATE dining_tables 
+        SET zone_id = 1 
+        WHERE number IN (3, 4);
+
+        -- Các bàn khác nếu thiếu zone_id thì gán theo dải bàn
+        UPDATE dining_tables 
+        SET zone_id = CASE 
+          WHEN number >= 8 THEN 3 
+          WHEN number >= 5 THEN 2 
+          ELSE 1 
+        END 
+        WHERE zone_id IS NULL OR zone_id NOT IN (SELECT id FROM zones);
+      `).catch(() => {});
+
       this.logger.log(
-        'Đã khởi tạo thành công bảng zones và dining_tables'
+        'Đã khởi tạo thành công bảng zones, dining_tables và liên kết khu vực bàn'
       );
 
     } catch (err) {
