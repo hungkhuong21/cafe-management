@@ -161,8 +161,8 @@ export default function MenuItemCard({
   return (
     <div className="group relative flex flex-col justify-between rounded-3xl bg-white p-3 sm:p-3.5 border border-stone-200/80 shadow-xs hover:border-orange-300 hover:shadow-xl hover:shadow-orange-500/5 transition-all duration-200">
       <div>
-        {/* 1. KHU VỰC ẢNH MÓN: TỰ ĐỘNG THÍCH ỨNG THEO TỈ LỆ KHUNG HÌNH (Responsive Aspect Ratio) */}
-        <div className="relative w-full aspect-[4/3] sm:aspect-[16/10] max-h-56 overflow-hidden rounded-2xl bg-stone-100 border border-stone-200/60 shadow-2xs">
+        {/* 1. KHU VỰC ẢNH MÓN: TỈ LỆ VUÔNG 1:1 CHUẨN F&B (HIỂN THỊ TRỌN VẸN 100% ẢNH TẢI LÊN) */}
+        <div className="relative w-full aspect-square overflow-hidden rounded-2xl bg-stone-100 border border-stone-200/60 shadow-2xs">
           {displayImage && !imgError ? (
             <img
               src={displayImage}
