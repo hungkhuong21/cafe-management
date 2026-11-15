@@ -16,9 +16,32 @@ export class OrdersService implements OnModuleInit {
         ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS cost NUMERIC(12,0) DEFAULT 0;
         ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(12,0) DEFAULT 0;
         ALTER TABLE order_items ADD COLUMN IF NOT EXISTS note TEXT;
+
+        -- Đảm bảo 3 khu vực chuẩn tồn tại
+        INSERT INTO zones (id, name, sort_order) VALUES
+          (1, 'Tầng trệt', 1),
+          (2, 'Lầu 1', 2),
+          (3, 'Sân vườn', 3)
+        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order;
+
+        -- Cập nhật dọn dẹp các tên khu vực cũ
+        UPDATE zones SET name = 'Tầng trệt' WHERE name ILIKE '%khu vực chính%' OR name ILIKE '%tai quan%';
+        
+        -- Đồng bộ khu vực cho từng bàn chuẩn xác:
+        -- Bàn 1, 2, 5, 6, 7: Lầu 1
+        UPDATE dining_tables SET zone_id = 2 WHERE number IN (1, 2, 5, 6, 7);
+        -- Bàn từ 8 trở lên: Sân vườn
+        UPDATE dining_tables SET zone_id = 3 WHERE number >= 8;
+        -- Bàn 3, 4: Tầng trệt
+        UPDATE dining_tables SET zone_id = 1 WHERE number IN (3, 4);
+
+        -- Đồng bộ lại các đơn có note 'Khách: Bàn 01' hoặc 'Bàn 1' bị trỏ nhầm sang id bàn khác
+        UPDATE orders 
+        SET table_id = (SELECT id FROM dining_tables WHERE number = 1 LIMIT 1)
+        WHERE note ILIKE '%Khách: Bàn 01%' OR note ILIKE '%Khách: Bàn 1%';
       `);
 
-      this.logger.log('Đã kiểm tra và đảm bảo cấu trúc bảng orders / order_items sẵn sàng');
+      this.logger.log('Đã kiểm tra và đảm bảo cấu trúc bảng orders / order_items và đồng bộ khu vực bàn sẵn sàng');
     } catch (err) {
       this.logger.warn('Ghi chú kiểm tra cấu trúc orders:', err);
     }
@@ -30,14 +53,15 @@ export class OrdersService implements OnModuleInit {
         o.id,
         o.code,
         o.table_id,
-        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE CONCAT('Bàn ', LPAD(dt.number::text, 2, '0')) END as table_name,
+        dt.number as table_number,
+        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE CONCAT('Bàn ', LPAD(COALESCE(dt.number, o.table_id)::text, 2, '0')) END as table_name,
         CASE 
           WHEN o.table_id IS NULL THEN 'Mang đi' 
           ELSE COALESCE(
-            z.name, 
+            NULLIF(NULLIF(NULLIF(z.name, 'Khu vực chính'), 'Tại quán'), 'Khu vuc chinh'), 
             CASE 
-              WHEN dt.number >= 8 THEN 'Sân vườn' 
-              WHEN dt.number IN (1, 2, 5, 6, 7) THEN 'Lầu 1' 
+              WHEN COALESCE(dt.number, o.table_id) >= 8 THEN 'Sân vườn' 
+              WHEN COALESCE(dt.number, o.table_id) IN (1, 2, 5, 6, 7) THEN 'Lầu 1' 
               ELSE 'Tầng trệt' 
             END
           ) 
@@ -63,7 +87,7 @@ export class OrdersService implements OnModuleInit {
       FROM orders o
       LEFT JOIN dining_tables dt ON (
         dt.id = o.table_id 
-        OR (dt.number = o.table_id AND NOT EXISTS (SELECT 1 FROM dining_tables d2 WHERE d2.id = o.table_id))
+        OR dt.number = o.table_id
       )
       LEFT JOIN zones z ON dt.zone_id = z.id
       LEFT JOIN order_items oi ON o.id = oi.order_id
@@ -80,14 +104,15 @@ export class OrdersService implements OnModuleInit {
         o.id,
         o.code,
         o.table_id,
-        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE CONCAT('Bàn ', LPAD(dt.number::text, 2, '0')) END as table_name,
+        dt.number as table_number,
+        CASE WHEN o.table_id IS NULL THEN 'Mang đi' ELSE CONCAT('Bàn ', LPAD(COALESCE(dt.number, o.table_id)::text, 2, '0')) END as table_name,
         CASE 
           WHEN o.table_id IS NULL THEN 'Mang đi' 
           ELSE COALESCE(
-            z.name, 
+            NULLIF(NULLIF(NULLIF(z.name, 'Khu vực chính'), 'Tại quán'), 'Khu vuc chinh'), 
             CASE 
-              WHEN dt.number >= 8 THEN 'Sân vườn' 
-              WHEN dt.number IN (1, 2, 5, 6, 7) THEN 'Lầu 1' 
+              WHEN COALESCE(dt.number, o.table_id) >= 8 THEN 'Sân vườn' 
+              WHEN COALESCE(dt.number, o.table_id) IN (1, 2, 5, 6, 7) THEN 'Lầu 1' 
               ELSE 'Tầng trệt' 
             END
           ) 
@@ -113,7 +138,7 @@ export class OrdersService implements OnModuleInit {
       FROM orders o
       LEFT JOIN dining_tables dt ON (
         dt.id = o.table_id 
-        OR (dt.number = o.table_id AND NOT EXISTS (SELECT 1 FROM dining_tables d2 WHERE d2.id = o.table_id))
+        OR dt.number = o.table_id
       )
       LEFT JOIN zones z ON dt.zone_id = z.id
       LEFT JOIN order_items oi ON o.id = oi.order_id
@@ -174,16 +199,30 @@ export class OrdersService implements OnModuleInit {
         });
       }
 
-      // 2. Tìm table_id hợp lệ (hỗ trợ cả id và số bàn number)
+      // 2. Tìm table_id hợp lệ (ưu tiên tra theo số bàn number trước để khớp chính xác bàn 01, 02...)
       let tableId = dto.table_id ? Number(dto.table_id) : null;
       if (tableId) {
-        const checkId = await client.query('SELECT id FROM dining_tables WHERE id = $1', [tableId]);
-        if (checkId.rows.length === 0) {
+        // Kiểm tra xem khách có ghi chú số bàn cụ thể trong customer_name không (vd: 'Bàn 01')
+        const custNumMatch = dto.customer_name ? String(dto.customer_name).match(/bàn\s*(\d+)/i) : null;
+        const targetNumber = custNumMatch ? Number(custNumMatch[1]) : null;
+
+        if (targetNumber) {
+          const matchNumRes = await client.query('SELECT id FROM dining_tables WHERE number = $1', [targetNumber]);
+          if (matchNumRes.rows.length > 0) {
+            tableId = matchNumRes.rows[0].id;
+          }
+        } else {
+          // Ưu tiên tra cứu theo số bàn number trước
           const checkNum = await client.query('SELECT id FROM dining_tables WHERE number = $1', [tableId]);
           if (checkNum.rows.length > 0) {
             tableId = checkNum.rows[0].id;
           } else {
-            tableId = null;
+            const checkId = await client.query('SELECT id FROM dining_tables WHERE id = $1', [tableId]);
+            if (checkId.rows.length > 0) {
+              tableId = checkId.rows[0].id;
+            } else {
+              tableId = null;
+            }
           }
         }
       }

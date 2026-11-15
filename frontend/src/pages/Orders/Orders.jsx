@@ -34,15 +34,15 @@ const removeAccents = (str) => {
 };
 
 const normalizeZone = (z, tableId) => {
-  if (!z || z === "null" || z === "undefined") {
-    if (!tableId) return "Mang đi";
-    const num = Number(tableId);
-    if (num >= 8) return "Sân vườn";
-    if (num === 1 || num === 2 || num === 5 || num === 6 || num === 7) return "Lầu 1";
-    return "Tầng trệt";
-  }
-  const trimmed = String(z).trim();
-  if (trimmed === "Khu vực chính" || trimmed === "Tại quán") {
+  const trimmed = z ? String(z).trim() : "";
+  const isGeneric =
+    !trimmed ||
+    trimmed === "null" ||
+    trimmed === "undefined" ||
+    trimmed === "Tại quán" ||
+    removeAccents(trimmed).includes("khu vuc chinh");
+
+  if (isGeneric) {
     if (!tableId) return "Mang đi";
     const num = Number(tableId);
     if (num >= 8) return "Sân vườn";
@@ -177,14 +177,26 @@ export default function Orders() {
       const res = await api.get("/orders");
       const data = res.data || [];
       const mapped = data.map((o) => {
-        const tableId = o.table_id || (o.table_name && o.table_name.match(/\d+/) ? Number(o.table_name.match(/\d+/)[0]) : null);
+        // Ưu tiên đọc số bàn thực tế từ table_number (backend) hoặc trích từ table_name
+        let tableNum = o.table_number;
+        if (!tableNum && o.table_name) {
+          const match = o.table_name.match(/\d+/);
+          if (match) tableNum = Number(match[0]);
+        }
+        if (!tableNum && o.table_id) {
+          tableNum = Number(o.table_id);
+        }
+
+        const realPlace = o.table_name || (tableNum ? `Bàn ${String(tableNum).padStart(2, "0")}` : null);
+        const resolvedZone = normalizeZone(o.zone_name, tableNum);
+
         return {
           id: o.id,
           code: o.code ? o.code.replace("#", "") : `CF-${o.id}`,
           status: o.status || "new",
-          tableId: tableId,
-          tableName: o.table_name || null,
-          zoneName: normalizeZone(o.zone_name, tableId),
+          tableId: tableNum,
+          tableName: realPlace,
+          zoneName: resolvedZone,
           note: o.note || "",
           createdAt: o.created_at ? new Date(o.created_at).getTime() : Date.now(),
           doneAt: o.done_at ? new Date(o.done_at).getTime() : undefined,

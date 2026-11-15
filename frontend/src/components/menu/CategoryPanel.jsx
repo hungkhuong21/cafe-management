@@ -1,5 +1,30 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Plus, GripVertical, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import {
+  Plus,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+  Sparkles,
+  Coffee,
+  CupSoda,
+  Cake,
+  Zap,
+  Tag,
+  Wine,
+} from "lucide-react";
+
+// Helper gán icon trực quan tương ứng với tên danh mục
+const getCategoryIcon = (name) => {
+  if (!name) return Tag;
+  const lower = name.toLowerCase();
+  if (lower.includes("tất cả")) return Sparkles;
+  if (lower.includes("cà phê") || lower.includes("cafe")) return Coffee;
+  if (lower.includes("trà")) return CupSoda;
+  if (lower.includes("sinh tố") || lower.includes("nước ép")) return Wine;
+  if (lower.includes("đá xay")) return Zap;
+  if (lower.includes("bánh") || lower.includes("ăn nhẹ") || lower.includes("snack")) return Cake;
+  return Tag;
+};
 
 export default function CategoryPanel({
   categories,
@@ -23,47 +48,59 @@ export default function CategoryPanel({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [activeMenuCatId]);
 
+  const catCount = Math.max(0, categories.length - 1);
+
   return (
-    <aside className="flex flex-col rounded-2xl bg-white p-4 shadow-sm lg:w-64 lg:shrink-0 border border-stone-100">
+    <aside className="flex flex-col rounded-3xl bg-white p-4 shadow-sm lg:w-64 lg:shrink-0 border border-stone-200/70 self-start sticky top-4">
+      {/* Header Danh mục */}
       <div className="mb-3 flex items-center justify-between px-1">
-        <h2 className="font-bold text-stone-900">Danh mục</h2>
+        <div className="flex items-center gap-1.5">
+          <h2 className="font-extrabold text-stone-900 text-sm">Danh mục</h2>
+          <span className="text-xs font-bold text-stone-400">({catCount})</span>
+        </div>
         <button
           type="button"
           onClick={onOpenAddCategory}
           aria-label="Thêm danh mục"
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-50 text-brand hover:bg-orange-100 transition shadow-2xs"
+          className="flex h-7 w-7 items-center justify-center rounded-xl bg-orange-50 text-[#E06D44] hover:bg-[#E06D44] hover:text-white transition shadow-2xs"
           title="Thêm danh mục mới"
         >
-          <Plus size={14} />
+          <Plus size={14} className="stroke-[2.5]" />
         </button>
       </div>
 
+      {/* Danh sách danh mục */}
       <ul className="space-y-1">
         {categories.map((c) => {
           const active = c.id === selectedId;
           const isAll = c.id === "all";
+          const IconComponent = getCategoryIcon(c.name);
 
           return (
             <li key={c.id} className="group relative">
               <div
-                className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                className={`flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-xs sm:text-sm transition-all duration-150 cursor-pointer ${
                   active
-                    ? "bg-orange-50 font-semibold text-brand"
-                    : "text-stone-600 hover:bg-stone-50"
+                    ? "bg-gradient-to-r from-[#E06D44] to-[#C84E29] text-white font-bold shadow-md shadow-orange-500/20"
+                    : "text-stone-700 hover:bg-stone-50 font-medium"
                 }`}
+                onClick={() => onSelect(c.id)}
               >
-                <button
-                  type="button"
-                  onClick={() => onSelect(c.id)}
-                  className="flex-1 text-left truncate pr-2"
-                >
-                  {c.name}
-                </button>
+                <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-1">
+                  <IconComponent
+                    size={16}
+                    className={`shrink-0 ${active ? "text-white" : "text-stone-400 group-hover:text-stone-600"}`}
+                  />
+                  <span className="truncate">{c.name}</span>
+                </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {/* Số lượng món */}
                   <span
-                    className={`text-xs ${
-                      active ? "text-brand" : "text-stone-400"
+                    className={`rounded-lg px-2 py-0.5 text-[11px] font-extrabold transition ${
+                      active
+                        ? "bg-white/20 text-white"
+                        : "bg-stone-100 text-stone-500 group-hover:bg-stone-200/80"
                     }`}
                   >
                     {c.count || 0}
@@ -80,7 +117,11 @@ export default function CategoryPanel({
                         }}
                         aria-label="Tùy chọn danh mục"
                         title="Tùy chọn"
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition"
+                        className={`p-1 rounded-md transition ${
+                          active
+                            ? "text-white/80 hover:text-white hover:bg-white/20"
+                            : "opacity-0 group-hover:opacity-100 text-stone-400 hover:text-stone-700 hover:bg-stone-200/60"
+                        }`}
                       >
                         <MoreHorizontal size={14} />
                       </button>
@@ -89,11 +130,12 @@ export default function CategoryPanel({
                       {activeMenuCatId === c.id && (
                         <div
                           ref={menuRef}
-                          className="absolute right-0 top-full mt-1 z-30 w-36 rounded-2xl bg-white p-1.5 shadow-xl border border-stone-200/80 animate-in fade-in zoom-in-95"
+                          className="absolute right-0 top-full mt-1.5 z-40 w-36 rounded-2xl bg-white p-1.5 shadow-xl border border-stone-200/80 animate-in fade-in zoom-in-95 text-left"
                         >
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setActiveMenuCatId(null);
                               if (onEditCategory) onEditCategory(c);
                             }}
@@ -104,7 +146,8 @@ export default function CategoryPanel({
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setActiveMenuCatId(null);
                               if (onDeleteCategory) onDeleteCategory(c);
                             }}
@@ -124,10 +167,15 @@ export default function CategoryPanel({
         })}
       </ul>
 
-      <div className="mt-auto flex gap-2 rounded-xl bg-stone-50 p-3 text-xs text-stone-500">
-        <GripVertical size={14} className="mt-0.5 shrink-0 text-stone-400" />
-        <p>Kéo thả để sắp xếp thứ tự danh mục trên menu khách hàng.</p>
-      </div>
+      {/* Nút thêm danh mục mới ở chân danh sách */}
+      <button
+        type="button"
+        onClick={onOpenAddCategory}
+        className="w-full mt-3 py-2.5 px-3 border border-dashed border-stone-200 rounded-2xl text-xs font-bold text-stone-500 hover:text-[#E06D44] hover:border-orange-300 hover:bg-orange-50/50 flex items-center justify-center gap-1.5 transition active:scale-98"
+      >
+        <Plus size={14} />
+        <span>Thêm danh mục mới</span>
+      </button>
     </aside>
   );
 }

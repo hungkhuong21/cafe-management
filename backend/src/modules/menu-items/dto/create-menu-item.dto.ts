@@ -7,6 +7,7 @@ export class CreateMenuItemDto {
   image_url?: string;
   status?: string; // 'available' | 'soldout' | 'hidden'
   show_on_qr?: boolean;
+  is_best_seller?: boolean;
 }
 
 export class UpdateMenuItemDto {
@@ -18,4 +19,5 @@ export class UpdateMenuItemDto {
   image_url?: string;
   status?: string;
   show_on_qr?: boolean;
+  is_best_seller?: boolean;
 }

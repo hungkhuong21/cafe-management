@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, Utensils, Camera } from "lucide-react";
+import { X, Utensils, Camera, Flame } from "lucide-react";
 import api from "../../services/api";
 import { getImageUrl } from "../../utils/imageUrl";
 import { compressImage } from "../../utils/imageCompressor";
@@ -29,6 +29,7 @@ export default function MenuItemModal({
   // 5. Trạng thái & Hiển thị
   const [status, setStatus] = useState("available"); // 'available' | 'soldout' | 'hidden'
   const [showOnQr, setShowOnQr] = useState(true);
+  const [isBestSeller, setIsBestSeller] = useState(false);
 
   const [uploadingImage, setUploadingImage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +46,7 @@ export default function MenuItemModal({
       setDescription(itemToEdit.description || "");
       setStatus(itemToEdit.status || "available");
       setShowOnQr(itemToEdit.show_on_qr !== false);
+      setIsBestSeller(Boolean(itemToEdit.is_best_seller));
       const img = itemToEdit.image_url || itemToEdit.image || "";
       setImageUrl(img);
       setImagePreview(getImageUrl(img) || img);
@@ -57,6 +59,7 @@ export default function MenuItemModal({
       setDescription("");
       setStatus("available");
       setShowOnQr(true);
+      setIsBestSeller(false);
       setImageUrl("");
       setImagePreview("");
       setError("");
@@ -127,6 +130,7 @@ export default function MenuItemModal({
         image_url: imageUrl || imagePreview || null,
         status,
         show_on_qr: showOnQr,
+        is_best_seller: isBestSeller,
       };
 
       if (itemToEdit) {
@@ -338,6 +342,27 @@ export default function MenuItemModal({
                   </div>
                 </label>
               </div>
+            </div>
+
+            {/* Tùy chọn Món bán chạy (Best Seller) */}
+            <div className="mt-3">
+              <label className="flex items-center gap-3 cursor-pointer p-3 rounded-2xl border border-stone-200/80 bg-stone-50/50 hover:bg-amber-50/50 hover:border-amber-300 transition">
+                <input
+                  type="checkbox"
+                  checked={isBestSeller}
+                  onChange={(e) => setIsBestSeller(e.target.checked)}
+                  className="rounded border-stone-300 text-amber-500 focus:ring-amber-500 h-4 w-4"
+                />
+                <div className="flex-1">
+                  <span className="font-extrabold text-xs text-stone-900 flex items-center gap-1.5">
+                    <Flame size={14} className="text-amber-500 fill-amber-500" />
+                    Đánh dấu là món Bán chạy (Best Seller)
+                  </span>
+                  <span className="text-[10px] text-stone-500 block leading-tight mt-0.5">
+                    Gắn huy hiệu Best Seller ưu tiên trên Menu quản lý và thực đơn QR của khách
+                  </span>
+                </div>
+              </label>
             </div>
           </div>
 

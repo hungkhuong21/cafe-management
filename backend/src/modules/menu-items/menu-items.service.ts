@@ -20,6 +20,7 @@ export class MenuItemsService implements OnModuleInit {
         ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS description TEXT;
         ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS promo_price NUMERIC(12,0);
         ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS show_on_qr BOOLEAN DEFAULT TRUE;
+        ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS is_best_seller BOOLEAN DEFAULT FALSE;
       `).catch(() => {});
       await this.db.query(`
         ALTER TABLE categories ALTER COLUMN image_url TYPE TEXT;
@@ -78,14 +79,24 @@ export class MenuItemsService implements OnModuleInit {
       `;
       const res = await this.db.query(query);
       const rows = res.rows || [];
+      const hasAnyManualBestSeller = rows.some((r: any) => Boolean(r.is_best_seller));
       const maxSold = Math.max(0, ...rows.map((r: any) => Number(r.total_sold || 0)));
 
-      return rows.map((item: any) => ({
-        ...item,
-        total_sold: Number(item.total_sold || 0),
-        order_count: Number(item.order_count || 0),
-        is_best_seller: maxSold > 0 && Number(item.total_sold || 0) === maxSold,
-      }));
+      return rows.map((item: any) => {
+        const isManual = Boolean(item.is_best_seller);
+        // Nếu admin đã cấu hình món Best Seller thì ưu tiên theo cài đặt của admin
+        // Nếu chưa cấu hình thì tự động lấy món bán chạy nhất từ đơn hàng
+        const finalBestSeller = hasAnyManualBestSeller
+          ? isManual
+          : (maxSold > 0 && Number(item.total_sold || 0) === maxSold);
+
+        return {
+          ...item,
+          total_sold: Number(item.total_sold || 0),
+          order_count: Number(item.order_count || 0),
+          is_best_seller: finalBestSeller,
+        };
+      });
     } catch (err) {
       this.logger.warn('Lỗi query sales menu-items, dùng fallback query:', err);
       const fallbackQuery = onlyAvailable
@@ -143,11 +154,11 @@ export class MenuItemsService implements OnModuleInit {
   }
 
   async create(dto: CreateMenuItemDto) {
-    // Tự động kiểm tra và chèn các trường đầy đủ (kèm description, promo_price, show_on_qr)
+    // Tự động kiểm tra và chèn các trường đầy đủ (kèm description, promo_price, show_on_qr, is_best_seller)
     try {
       const res = await this.db.query(
-        `INSERT INTO menu_items (name, category_id, price, promo_price, description, image_url, status, show_on_qr) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+        `INSERT INTO menu_items (name, category_id, price, promo_price, description, image_url, status, show_on_qr, is_best_seller) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
          RETURNING *`,
         [
           dto.name,
@@ -158,6 +169,7 @@ export class MenuItemsService implements OnModuleInit {
           dto.image_url || null,
           dto.status || 'available',
           dto.show_on_qr !== false,
+          Boolean(dto.is_best_seller),
         ],
       );
       return res.rows[0];
@@ -209,6 +221,10 @@ export class MenuItemsService implements OnModuleInit {
     if (dto.show_on_qr !== undefined) {
       fields.push(`show_on_qr = $${idx++}`);
       values.push(dto.show_on_qr);
+    }
+    if (dto.is_best_seller !== undefined) {
+      fields.push(`is_best_seller = $${idx++}`);
+      values.push(Boolean(dto.is_best_seller));
     }
 
     if (fields.length === 0) return this.findOne(id);

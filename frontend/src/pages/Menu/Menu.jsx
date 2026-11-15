@@ -1,5 +1,15 @@
 import { useMemo, useState, useEffect } from "react";
-import { Search, SlidersHorizontal, ArrowUpDown, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Search,
+  SlidersHorizontal,
+  ArrowUpDown,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  List,
+  X,
+} from "lucide-react";
 import CategoryPanel from "../../components/menu/CategoryPanel";
 import MenuItemCard from "../../components/menu/MenuItemCard";
 import SelectButton from "../../components/common/SelectButton";
@@ -44,6 +54,7 @@ export default function Menu() {
   const [categoryId, setCategoryId] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sort, setSort] = useState("default");
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' | 'list'
 
   // Load menu items & categories từ API, nếu rỗng thì giữ lại dữ liệu mẫu minh hoạ
   const fetchMenuData = async () => {
@@ -170,6 +181,20 @@ export default function Menu() {
     );
   };
 
+  // Cập nhật Best Seller trực tiếp (on/off)
+  const handleToggleBestSeller = async (item) => {
+    const nextVal = !item.is_best_seller;
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, is_best_seller: nextVal } : i))
+    );
+    try {
+      await api.put(`/menu-items/${item.id}`, { is_best_seller: nextVal });
+    } catch (err) {
+      console.warn("Lỗi cập nhật Best Seller:", err);
+      fetchMenuData();
+    }
+  };
+
   // Thao tác với món
   const handleEditItem = (item) => {
     setEditingItem(item);
@@ -248,19 +273,29 @@ export default function Menu() {
       {/* Khu vực danh sách món bên phải */}
       <div className="flex-1 space-y-4">
         {/* Thanh tìm kiếm & bộ lọc */}
-        <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-3xl bg-white p-3.5 sm:p-4 shadow-sm border border-stone-200/70 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1">
             <Search
               size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400"
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400"
             />
             <input
               type="text"
-              placeholder="Tìm theo tên món..."
+              placeholder="Tìm theo tên món, mã món..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full rounded-xl border border-stone-200 bg-stone-50 py-2 pl-9 pr-4 text-sm focus:border-brand focus:bg-white focus:outline-none"
+              className="w-full rounded-2xl border border-stone-200 bg-stone-50 py-2.5 pl-10 pr-9 text-xs sm:text-sm text-stone-800 placeholder-stone-400 focus:border-[#E06D44] focus:bg-white focus:outline-none transition"
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 p-0.5 text-xs font-bold"
+                title="Xóa tìm kiếm"
+              >
+                <X size={15} />
+              </button>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -277,21 +312,57 @@ export default function Menu() {
               onChange={setSort}
               options={SORT_OPTIONS}
             />
+
+            {/* Nút chuyển đổi kiểu xem Lưới / Danh sách */}
+            <div className="flex items-center rounded-xl bg-stone-100 p-1 border border-stone-200/60 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-lg transition ${
+                  viewMode === "grid"
+                    ? "bg-white text-[#E06D44] shadow-xs font-bold"
+                    : "text-stone-400 hover:text-stone-700"
+                }`}
+                title="Xem dạng thẻ (Grid)"
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-lg transition ${
+                  viewMode === "list"
+                    ? "bg-white text-[#E06D44] shadow-xs font-bold"
+                    : "text-stone-400 hover:text-stone-700"
+                }`}
+                title="Xem dạng danh sách (List)"
+              >
+                <List size={16} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Danh sách món Grid */}
+        {/* Danh sách món */}
         {loading ? (
-          <div className="py-20 text-center text-sm text-stone-400">
+          <div className="py-24 text-center text-sm font-medium text-stone-400">
+            <div className="w-8 h-8 border-2 border-stone-300 border-t-[#E06D44] rounded-full animate-spin mx-auto mb-3" />
             Đang tải danh sách món...
           </div>
         ) : visibleItems.length === 0 ? (
-          <div className="rounded-2xl bg-white p-12 text-center text-stone-400">
-            Không tìm thấy món nào phù hợp với bộ lọc.
+          <div className="rounded-3xl bg-white p-12 text-center text-stone-400 border border-stone-200/70">
+            <p className="text-base font-bold text-stone-600 mb-1">Không tìm thấy món nào</p>
+            <p className="text-xs text-stone-400">Vui lòng thử tìm kiếm bằng từ khóa khác hoặc đổi bộ lọc.</p>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div
+              className={
+                viewMode === "grid"
+                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"
+                  : "flex flex-col gap-2.5"
+              }
+            >
               {paginatedItems.map((item) => (
                 <MenuItemCard
                   key={item.id}
@@ -303,9 +374,11 @@ export default function Menu() {
                       "Chưa phân loại",
                     inStock: item.status === "available",
                   }}
+                  viewMode={viewMode}
                   onToggle={() => handleToggleStatus(item)}
                   onEdit={handleEditItem}
                   onDelete={handleDeleteItem}
+                  onToggleBestSeller={handleToggleBestSeller}
                 />
               ))}
             </div>
