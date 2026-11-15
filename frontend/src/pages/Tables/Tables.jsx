@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Armchair, Users, CircleCheck, RefreshCw, Trash2, AlertTriangle } from "lucide-react";
+import { Armchair, Users, CircleCheck, RefreshCw, Trash2, AlertTriangle, Plus, Pencil, MapPin, X, Check } from "lucide-react";
 import StatCard from "../../components/dashboard/StatCard";
 import ZoneTabs from "../../components/tables/ZoneTabs";
 import TableCard from "../../components/tables/TableCard";
@@ -21,6 +21,16 @@ export default function Tables() {
   const [deletingTable, setDeletingTable] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // ── Zone management states ──────────────────────────────────
+  const [showZoneManager, setShowZoneManager] = useState(false);
+  const [editingZone, setEditingZone] = useState(null);   // { id, name } or null
+  const [editZoneName, setEditZoneName] = useState("");
+  const [deletingZone, setDeletingZone] = useState(null);
+  const [isDeletingZone, setIsDeletingZone] = useState(false);
+  const [newZoneName, setNewZoneName] = useState("");
+  const [addingZone, setAddingZone] = useState(false);
+  const [zoneError, setZoneError] = useState("");
 
   // Load bàn và khu vực từ API
   const fetchTablesData = async () => {
@@ -135,6 +145,67 @@ export default function Tables() {
     }
   };
 
+  // ── Zone CRUD handlers ──────────────────────────────────────
+  const handleStartEditZone = (z) => {
+    setEditingZone(z);
+    setEditZoneName(z.name);
+    setZoneError("");
+  };
+
+  const handleSaveEditZone = async () => {
+    if (!editZoneName.trim()) {
+      setZoneError("Vui lòng nhập tên khu vực!");
+      return;
+    }
+    setZoneError("");
+    try {
+      await api.put(`/zones/${editingZone.id}`, { name: editZoneName.trim() });
+      setZonesList((prev) =>
+        prev.map((z) => (z.id === editingZone.id ? { ...z, name: editZoneName.trim() } : z))
+      );
+      setEditingZone(null);
+      fetchTablesData();
+    } catch (err) {
+      setZoneError(err?.response?.data?.message || "Không thể cập nhật khu vực!");
+    }
+  };
+
+  const handleConfirmDeleteZone = async () => {
+    if (!deletingZone) return;
+    setIsDeletingZone(true);
+    try {
+      await api.delete(`/zones/${deletingZone.id}`);
+      setZonesList((prev) => prev.filter((z) => z.id !== deletingZone.id));
+      if (zone === deletingZone.name) setZone("all");
+      setDeletingZone(null);
+      fetchTablesData();
+    } catch (err) {
+      console.warn("Lỗi xóa khu vực:", err);
+      setDeletingZone(null);
+    } finally {
+      setIsDeletingZone(false);
+    }
+  };
+
+  const handleAddZone = async () => {
+    if (!newZoneName.trim()) {
+      setZoneError("Vui lòng nhập tên khu vực!");
+      return;
+    }
+    setZoneError("");
+    setAddingZone(true);
+    try {
+      const res = await api.post("/zones", { name: newZoneName.trim() });
+      setZonesList((prev) => [...prev, res.data]);
+      setNewZoneName("");
+      fetchTablesData();
+    } catch (err) {
+      setZoneError(err?.response?.data?.message || "Không thể thêm khu vực!");
+    } finally {
+      setAddingZone(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* 3 thẻ thống kê */}
@@ -150,6 +221,18 @@ export default function Tables() {
 
         <div className="flex items-center gap-2 self-end text-xs text-stone-500 sm:self-auto">
           <span>Cập nhật: {formatTime(updatedAt)}</span>
+
+          {/* Nút Quản lý khu vực */}
+          <button
+            type="button"
+            onClick={() => { setShowZoneManager(true); setZoneError(""); }}
+            className="flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-white shadow-xs hover:bg-orange-50 hover:text-orange-600 text-stone-600 font-semibold transition border border-stone-200/80 text-[11px]"
+            title="Quản lý khu vực"
+          >
+            <MapPin size={12} />
+            <span className="hidden sm:inline">Khu vực</span>
+          </button>
+
           <button
             type="button"
             onClick={handleRefresh}
@@ -234,6 +317,169 @@ export default function Tables() {
                 className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-md disabled:bg-stone-300"
               >
                 {isDeleting ? "Đang xóa..." : "Xóa bàn"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════
+          MODAL QUẢN LÝ KHU VỰC (Thêm / Sửa / Xóa khu vực)
+          ══════════════════════════════════════════════════════════ */}
+      {showZoneManager && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-stone-100 animate-in zoom-in-95 overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-stone-100">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center">
+                  <MapPin className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-stone-900 text-sm leading-tight">Quản lý khu vực</h3>
+                  <p className="text-[11px] text-stone-500 font-medium">Thêm, sửa tên, xóa khu vực bàn</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowZoneManager(false); setEditingZone(null); setZoneError(""); setNewZoneName(""); }}
+                className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-500 hover:bg-stone-200 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Danh sách khu vực */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2.5">
+              {zonesList.length === 0 && (
+                <p className="text-xs text-center text-stone-400 py-6">Chưa có khu vực nào.</p>
+              )}
+
+              {zonesList.map((z) => (
+                <div
+                  key={z.id}
+                  className="flex items-center gap-3 rounded-2xl border border-stone-200/80 bg-stone-50 px-4 py-3"
+                >
+                  <MapPin size={14} className="shrink-0 text-orange-500" />
+
+                  {editingZone?.id === z.id ? (
+                    /* Inline edit mode */
+                    <div className="flex flex-1 items-center gap-2">
+                      <input
+                        autoFocus
+                        type="text"
+                        value={editZoneName}
+                        onChange={(e) => { setEditZoneName(e.target.value); setZoneError(""); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveEditZone(); if (e.key === "Escape") setEditingZone(null); }}
+                        className="flex-1 rounded-lg border border-orange-400 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-900 focus:outline-none focus:ring-2 focus:ring-orange-400/30"
+                      />
+                      <button
+                        onClick={handleSaveEditZone}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition"
+                        title="Lưu"
+                      >
+                        <Check size={13} />
+                      </button>
+                      <button
+                        onClick={() => { setEditingZone(null); setZoneError(""); }}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-200 text-stone-600 hover:bg-stone-300 transition"
+                        title="Hủy"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    /* Display mode */
+                    <>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-stone-900 truncate">{z.name}</p>
+                        <p className="text-[10.5px] text-stone-400 font-medium">
+                          {tables.filter((t) => (t.zone_name || t.zone) === z.name).length} bàn
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleStartEditZone(z)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-stone-400 hover:bg-orange-50 hover:text-orange-600 transition"
+                        title="Sửa tên khu vực"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        onClick={() => setDeletingZone(z)}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-stone-400 hover:bg-red-50 hover:text-red-600 transition"
+                        title="Xóa khu vực"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Thêm khu vực mới */}
+            <div className="px-6 pb-5 pt-3 border-t border-stone-100 space-y-2">
+              <p className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">Thêm khu vực mới</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="VD: Tầng 2, Sân thượng, Phòng VIP..."
+                  value={newZoneName}
+                  onChange={(e) => { setNewZoneName(e.target.value); setZoneError(""); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddZone(); }}
+                  className="flex-1 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2.5 text-xs font-medium text-stone-800 placeholder-stone-400 focus:border-orange-400 focus:bg-white focus:outline-none transition"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddZone}
+                  disabled={addingZone}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#E06D44] hover:bg-[#c85d36] text-white text-xs font-bold transition disabled:opacity-60 shadow-sm"
+                >
+                  <Plus size={14} />
+                  <span>{addingZone ? "Đang thêm..." : "Thêm"}</span>
+                </button>
+              </div>
+              {zoneError && (
+                <p className="text-xs font-semibold text-red-600 flex items-center gap-1.5">
+                  <AlertTriangle size={12} />
+                  {zoneError}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xác nhận Xóa khu vực */}
+      {deletingZone && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-stone-100 animate-in zoom-in-95 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
+              <MapPin className="w-6 h-6" />
+            </div>
+            <h3 className="font-bold text-stone-900 text-base mb-1">Xác nhận xóa khu vực?</h3>
+            <p className="text-xs text-stone-500 mb-1 leading-relaxed font-medium">
+              Bạn có chắc muốn xóa khu vực{" "}
+              <span className="font-bold text-stone-800">"{deletingZone.name}"</span>?
+            </p>
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200/70 rounded-xl px-3 py-2 mb-5 font-medium">
+              ⚠️ Các bàn trong khu vực này sẽ không còn được phân loại theo khu vực, nhưng sẽ không bị xóa.
+            </p>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeletingZone(null)}
+                disabled={isDeletingZone}
+                className="flex-1 py-2.5 rounded-xl border border-stone-200 text-xs font-bold text-stone-600 hover:bg-stone-50 transition"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteZone}
+                disabled={isDeletingZone}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-md disabled:bg-stone-300"
+              >
+                {isDeletingZone ? "Đang xóa..." : "Xóa khu vực"}
               </button>
             </div>
           </div>
