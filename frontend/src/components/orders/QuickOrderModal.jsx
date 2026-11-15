@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Coffee,
+  Flame,
 } from "lucide-react";
 import api from "../../services/api";
 import { getImageUrl } from "../../utils/imageUrl";
@@ -77,15 +78,31 @@ export default function QuickOrderModal({ isOpen, onClose, onOrderCreated }) {
     }
   }, [isOpen]);
 
-  // Lọc món theo search query và category
+  // Lọc món theo search query và category (hỗ trợ lọc và tìm Best Seller)
   const filteredMenuItems = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    const isSearchBestSeller =
+      q.includes("best seller") ||
+      q.includes("bestseller") ||
+      q.includes("ban chay") ||
+      q.includes("bán chạy") ||
+      q.includes("hot");
+
     return menuItems.filter((item) => {
-      const matchCat =
-        selectedCategory === "all" ||
-        item.category_id === Number(selectedCategory);
-      const matchSearch = item.name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase().trim());
+      let matchCat = true;
+      if (selectedCategory === "best_seller") {
+        matchCat = Boolean(item.is_best_seller);
+      } else if (selectedCategory !== "all") {
+        matchCat =
+          item.category_id === Number(selectedCategory) ||
+          String(item.category_id) === String(selectedCategory);
+      }
+
+      const matchSearch =
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        (isSearchBestSeller && Boolean(item.is_best_seller));
+
       return matchCat && matchSearch;
     });
   }, [menuItems, selectedCategory, searchQuery]);
@@ -263,6 +280,18 @@ export default function QuickOrderModal({ isOpen, onClose, onOrderCreated }) {
                   }`}
                 >
                   Tất cả ({menuItems.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("best_seller")}
+                  className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-xs font-semibold transition flex items-center gap-1.5 ${
+                    selectedCategory === "best_seller"
+                      ? "bg-gradient-to-r from-amber-500 to-[#D95D39] text-white shadow-xs"
+                      : "bg-orange-50 text-orange-700 hover:bg-orange-100"
+                  }`}
+                >
+                  <Flame size={13} className="fill-amber-300 text-amber-300" />
+                  <span>Best Seller</span>
                 </button>
                 {categories.map((cat) => (
                   <button

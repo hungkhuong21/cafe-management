@@ -11,6 +11,7 @@ import {
   Zap,
   Tag,
   Wine,
+  Flame,
 } from "lucide-react";
 
 // Helper gán icon trực quan tương ứng với tên danh mục
@@ -18,6 +19,7 @@ const getCategoryIcon = (name) => {
   if (!name) return Tag;
   const lower = name.toLowerCase();
   if (lower.includes("tất cả")) return Sparkles;
+  if (lower.includes("best seller") || lower.includes("bán chạy")) return Flame;
   if (lower.includes("cà phê") || lower.includes("cafe")) return Coffee;
   if (lower.includes("trà")) return CupSoda;
   if (lower.includes("sinh tố") || lower.includes("nước ép")) return Wine;
@@ -106,8 +108,8 @@ export default function CategoryPanel({
                     {c.count || 0}
                   </span>
 
-                  {/* Nút 3 chấm cho danh mục cụ thể (không áp dụng cho 'Tất cả') */}
-                  {!isAll && (
+                  {/* Nút 3 chấm cho danh mục cụ thể (không áp dụng cho 'Tất cả' hoặc 'Best Seller') */}
+                  {!isAll && !c.isBestSellerSpecial && (
                     <div className="relative">
                       <button
                         type="button"

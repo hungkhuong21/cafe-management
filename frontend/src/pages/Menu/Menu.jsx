@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   List,
   X,
+  Flame,
 } from "lucide-react";
 import CategoryPanel from "../../components/menu/CategoryPanel";
 import MenuItemCard from "../../components/menu/MenuItemCard";
@@ -20,6 +21,7 @@ import api from "../../services/api";
 
 const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "Tất cả trạng thái" },
+  { value: "bestseller", label: "🔥 Món Best Seller" },
   { value: "available", label: "Đang bán" },
   { value: "soldout", label: "Tạm hết" },
   { value: "hidden", label: "Ẩn khỏi menu" },
@@ -94,8 +96,10 @@ export default function Menu() {
 
   // Danh mục kèm số lượng món (tính cho cả id dạng string hay number)
   const categories = useMemo(() => {
+    const bestSellerCount = items.filter((i) => Boolean(i.is_best_seller)).length;
     return [
       { id: "all", name: "Tất cả món", count: items.length },
+      { id: "best_seller", name: "Món Best Seller", count: bestSellerCount, isBestSellerSpecial: true },
       ...categoriesList.map((c) => ({
         id: c.id,
         name: c.name,
@@ -117,18 +121,37 @@ export default function Menu() {
   // Lọc + sắp xếp
   const visibleItems = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const isSearchBestSeller =
+      q.includes("best seller") ||
+      q.includes("bestseller") ||
+      q.includes("ban chay") ||
+      q.includes("bán chạy") ||
+      q.includes("hot");
 
     const list = items.filter((i) => {
-      const matchCat =
-        categoryId === "all" ||
-        i.category_id === categoryId ||
-        i.category === categoryId ||
-        String(i.category_id) === String(categoryId);
+      // 1. Lọc theo danh mục hoặc tab Best Seller
+      let matchCat = true;
+      if (categoryId === "best_seller") {
+        matchCat = Boolean(i.is_best_seller);
+      } else if (categoryId !== "all") {
+        matchCat =
+          i.category_id === categoryId ||
+          i.category === categoryId ||
+          String(i.category_id) === String(categoryId);
+      }
 
-      const matchQuery = !q || (i.name && i.name.toLowerCase().includes(q));
+      // 2. Tìm kiếm theo tên món, mã món hoặc từ khóa "best seller" / "bán chạy"
+      const matchQuery =
+        !q ||
+        (i.name && i.name.toLowerCase().includes(q)) ||
+        (i.code && i.code.toLowerCase().includes(q)) ||
+        (isSearchBestSeller && Boolean(i.is_best_seller));
 
+      // 3. Lọc theo trạng thái hoặc lựa chọn Best Seller
       let matchStatus = true;
-      if (statusFilter === "available") {
+      if (statusFilter === "bestseller") {
+        matchStatus = Boolean(i.is_best_seller);
+      } else if (statusFilter === "available") {
         matchStatus = i.status === "available";
       } else if (statusFilter === "soldout") {
         matchStatus = i.status === "soldout";
@@ -299,6 +322,37 @@ export default function Menu() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Nút lọc nhanh món Best Seller */}
+            <button
+              type="button"
+              onClick={() => setCategoryId((prev) => (prev === "best_seller" ? "all" : "best_seller"))}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-bold transition-all border ${
+                categoryId === "best_seller"
+                  ? "bg-gradient-to-r from-amber-500 via-orange-500 to-[#D95D39] text-white border-transparent shadow-sm ring-2 ring-orange-500/20"
+                  : "bg-white text-stone-700 border-stone-200/80 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200"
+              }`}
+              title="Bật/tắt lọc nhanh các món Best Seller"
+            >
+              <Flame
+                size={14}
+                className={
+                  categoryId === "best_seller"
+                    ? "fill-amber-200 text-amber-200"
+                    : "text-amber-500 fill-amber-500"
+                }
+              />
+              <span className="whitespace-nowrap">Best Seller</span>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10.5px] font-black ${
+                  categoryId === "best_seller"
+                    ? "bg-white/25 text-white"
+                    : "bg-orange-50 text-orange-600 border border-orange-200/60"
+                }`}
+              >
+                {items.filter((i) => Boolean(i.is_best_seller)).length}
+              </span>
+            </button>
+
             <SelectButton
               icon={SlidersHorizontal}
               value={statusFilter}

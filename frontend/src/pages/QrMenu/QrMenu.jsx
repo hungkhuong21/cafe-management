@@ -253,28 +253,59 @@ export default function QrMenuPage() {
     return Math.max(0, ...menuItems.map((m) => Number(m.total_sold || 0)));
   }, [menuItems]);
 
+  const checkIsBestSeller = useCallback(
+    (item) => {
+      return (
+        Boolean(item.is_best_seller) ||
+        (maxSoldQuantity > 0 && Number(item.total_sold || 0) === maxSoldQuantity)
+      );
+    },
+    [maxSoldQuantity]
+  );
+
+  const bestSellerCount = useMemo(() => {
+    return sourceItems.filter(
+      (item) => item.status !== "hidden" && item.show_on_qr !== false && checkIsBestSeller(item)
+    ).length;
+  }, [sourceItems, checkIsBestSeller]);
+
   // Lọc món theo danh mục & tìm kiếm (Tự động ẩn món 'hidden' hoặc show_on_qr = false)
   const filteredItems = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    const isSearchBestSeller =
+      q.includes("best seller") ||
+      q.includes("bestseller") ||
+      q.includes("ban chay") ||
+      q.includes("bán chạy") ||
+      q.includes("hot");
+
     return sourceItems.filter((item) => {
       // 1. Không hiển thị món bị ẨN hoặc không cho phép hiện trên QR
       if (item.status === "hidden" || item.show_on_qr === false) {
         return false;
       }
 
-      const matchCat =
-        selectedCategory === "all" ||
-        item.category_id === selectedCategory ||
-        item.category_id === Number(selectedCategory) ||
-        String(item.category_id) === String(selectedCategory);
+      // 2. Lọc theo danh mục hoặc tab "best_seller"
+      let matchCat = true;
+      if (selectedCategory === "best_seller") {
+        matchCat = checkIsBestSeller(item);
+      } else if (selectedCategory !== "all") {
+        matchCat =
+          item.category_id === selectedCategory ||
+          item.category_id === Number(selectedCategory) ||
+          String(item.category_id) === String(selectedCategory);
+      }
 
+      // 3. Tìm kiếm theo tên món, mô tả hoặc từ khóa "best seller" / "bán chạy"
       const matchSearch =
-        !searchQuery.trim() ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        (item.description &&
-          item.description.toLowerCase().includes(searchQuery.toLowerCase().trim()));
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q)) ||
+        (isSearchBestSeller && checkIsBestSeller(item));
+
       return matchCat && matchSearch;
     });
-  }, [sourceItems, selectedCategory, searchQuery]);
+  }, [sourceItems, selectedCategory, searchQuery, checkIsBestSeller]);
 
   // Thao tác giỏ hàng (áp dụng giá khuyến mãi và chặn món tạm hết)
   const addToCart = (item) => {
@@ -674,6 +705,26 @@ export default function QrMenuPage() {
                   }`}
                 >
                   Tất cả ({sourceItems.length})
+                </button>
+
+                {/* Tab Món Best Seller nổi bật */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory("best_seller")}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all shrink-0 flex items-center gap-1.5 ${
+                    selectedCategory === "best_seller"
+                      ? "bg-gradient-to-r from-amber-500 via-orange-500 to-[#D95D39] text-white shadow-sm ring-2 ring-orange-500/20"
+                      : "bg-orange-50 text-orange-700 border border-orange-200/80 hover:bg-orange-100"
+                  }`}
+                >
+                  <Flame
+                    className={`w-3.5 h-3.5 ${
+                      selectedCategory === "best_seller"
+                        ? "fill-amber-200 text-amber-200"
+                        : "fill-orange-500 text-orange-500"
+                    }`}
+                  />
+                  <span>Best Seller {bestSellerCount > 0 ? `(${bestSellerCount})` : ""}</span>
                 </button>
                 {categories.map((cat) => {
                   const isCatSelected =
